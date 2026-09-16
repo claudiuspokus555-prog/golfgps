@@ -592,8 +592,12 @@ function render(){
     html += "<div class='card'>";
     var pinHere = getPinGPS(ROUND.course, ROUND.cur);
     html += "<h2>Roulés (1e case = distance en arrivant sur le vert)</h2>";
-    var pinLabel = pinHere ? (pinHere.source==="google-earth" ? "🚩 Position du vert (Google Earth) enregistrée pour ce trou" : "🚩 Position du vert enregistrée pour ce trou") : "🚩 Position du vert non enregistrée";
-    html += "<div class='gpsnote"+(pinHere?" ok":"")+"'>" + pinLabel + " <button class='linklike' style='margin-left:6px' onclick='App.recalibratePin()'>"+(pinHere?"recalibrer":"enregistrer maintenant")+"</button></div>";
+    var pinLabel;
+    if(!pinHere) pinLabel = "🚩 Position du vert non enregistrée";
+    else if(pinHere.source==="google-earth") pinLabel = "🚩 Position du vert (Google Earth) — pas encore vérifiée sur place";
+    else pinLabel = "🚩 Position du vert (GPS terrain"+(pinHere.accuracy?", ±"+Math.round(pinHere.accuracy)+"m":"")+")";
+    html += "<div class='gpsnote"+(pinHere && pinHere.source!=="google-earth"?" ok":"")+"'>" + pinLabel + "</div>";
+    html += "<button class='shotbtn' style='margin-top:2px' onclick='App.recalibratePin()'>📍 MODIF GPS VERT</button>";
     var target = puttTargetIndex(hd);
     html += "<div class='puttrow'>";
     [0,1,2,3].forEach(function(i){

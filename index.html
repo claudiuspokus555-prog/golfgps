@@ -1,0 +1,765 @@
+<meta charset="utf-8">
+<title>Calcul de Drive — GPS</title>
+<style>
+  /* Thème forcé clair et très contrasté, optimisé pour lecture au soleil direct sur le terrain. */
+  :root{
+    --bg:#FFFFFF; --surface:#FFFFFF; --border:#7C8A76; --text:#000000; --text-muted:#3D473A;
+    --accent:#1B5C3B; --accent-text:#FFFFFF; --danger:#A02E1A; --amber:#B6612B;
+    font-size:17px;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  html, body{ background:var(--bg); }
+  button{ -webkit-user-select:none; user-select:none; touch-action:manipulation; font-family:inherit; }
+  body{ margin:0; color:var(--text); font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; font-size:1rem; }
+  #app{ max-width:520px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding:11px 11px calc(19px + env(safe-area-inset-bottom)); gap:9px; }
+
+  .holebar{ display:flex; align-items:center; gap:8px; }
+  .navbtn{ background:var(--bg); border:2px solid var(--border); color:var(--text); border-radius:10px; padding:10px 12px; font-weight:900; font-size:1.1rem; }
+  .navbtn:active{ background:var(--border); }
+  .navbtn[disabled]{ opacity:.3; pointer-events:none; }
+  .holebadge{ flex:1; background:var(--accent); color:var(--accent-text); border-radius:12px; padding:8px 10px; text-align:center; }
+  .holebadge .prog{ font-weight:900; font-size:1.5rem; line-height:1; }
+  .holebadge .sub{ font-size:.85rem; font-weight:800; margin-top:2px; }
+
+  .teerow{ display:flex; gap:8px; }
+  .teebtn{ flex:1; border-radius:10px; padding:9px 4px; text-align:center; font-weight:900; font-size:.95rem; border:2px solid var(--border); }
+  .teebtn.blanc{ background:#FFFFFF; color:#000; }
+  .teebtn.rouge{ background:#F4E3E3; color:#7A1414; }
+  .teebtn.sel{ border-color:var(--accent); box-shadow:inset 0 0 0 2px var(--accent); }
+
+  .card{ background:var(--surface); border:1.75px solid var(--border); border-radius:13px; padding:12px; display:flex; flex-direction:column; gap:9px; }
+
+  .distbox{ display:flex; align-items:baseline; justify-content:center; gap:6px; }
+  .distbox .dlabel{ font-size:.78rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; }
+  .distbox .dnum{ font-size:1.4rem; font-weight:900; color:var(--danger); line-height:1; }
+  .distbox .dunit{ font-size:.8rem; font-weight:800; color:var(--danger); margin-left:2px; }
+
+  .clubline{ display:flex; align-items:center; gap:8px; font-size:1.02rem; font-weight:800; }
+  .clubline b{ color:var(--accent); font-size:1.15rem; }
+  .linklike{ background:none; border:none; color:var(--text-muted); font-size:.8rem; font-weight:700; text-decoration:underline; padding:5px; margin-left:auto; }
+
+  .clubgrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:7px; }
+  .clubbtn{ background:var(--bg); border:1.75px solid var(--border); border-radius:9px; padding:10px 2px; min-height:2.6rem; display:flex; align-items:center; justify-content:center; text-align:center; font-weight:800; font-size:.92rem; color:var(--text); }
+  .clubbtn.sel{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+
+  .shotbtn{ display:block; width:100%; white-space:nowrap; text-align:center; font-size:1.05rem; font-weight:900; padding:13px 4px; border-radius:14px; border:none; background:var(--danger); color:#fff; }
+  .shotbtn:active{ filter:brightness(.9); }
+  .shotbtn[disabled]{ opacity:.4; pointer-events:none; }
+
+  .keydisplay{ text-align:center; font-size:1.9rem; font-weight:900; color:var(--text); background:var(--bg); border:2px solid var(--accent); border-radius:12px; padding:5px; min-height:1.3em; }
+  .keypad{ display:grid; grid-template-columns:repeat(6,1fr); gap:5px; }
+  .keybtn{ background:var(--bg); border:1.75px solid var(--border); border-radius:9px; padding:11px 1px; font-size:1.05rem; font-weight:900; color:var(--text); }
+  .keybtn:active{ background:var(--border); }
+  .keybtn.wide{ grid-column:span 1; }
+  .greenbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--accent); color:var(--accent); border-radius:10px; padding:10px 2px; font-weight:800; font-size:.95rem; }
+  .greenbtn:active{ background:var(--accent); color:var(--accent-text); }
+  .greenbtn[disabled]{ opacity:.35; pointer-events:none; }
+  .okbtn{ width:100%; background:var(--accent); color:var(--accent-text); border:none; border-radius:12px; padding:13px; font-weight:900; font-size:1.1rem; }
+  .okbtn[disabled]{ opacity:.4; pointer-events:none; }
+
+  .shotlist{ font-size:.85rem; color:var(--text-muted); line-height:1.6; }
+  .shotlist b{ color:var(--accent); }
+
+  .puttrow{ display:flex; gap:5px; }
+  .puttbox{ flex:1; background:var(--bg); border:1.75px solid var(--border); border-radius:9px; padding:6px 2px; text-align:center; }
+  .puttbox .plabel{ font-size:.6rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; }
+  .puttbox .pval{ font-size:1.05rem; font-weight:900; color:var(--accent); }
+  .puttbox.empty .pval{ color:var(--border); }
+  .puttbox.active{ border-color:var(--accent); box-shadow:inset 0 0 0 2px var(--accent); }
+
+  .scorebox{ display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; justify-content:center; gap:8px; }
+  .scorebox .scorelabel{ font-size:.78rem; font-weight:800; color:var(--text-muted); white-space:nowrap; }
+  input.scoreinput{ width:52px; flex:none; text-align:center; font-size:1.35rem; font-weight:900; color:var(--accent); padding:4px; border-radius:9px; border:2px solid var(--accent); background:var(--bg); }
+
+  .scoregrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-bottom:4px; }
+  .sc-cell{ border-radius:8px; overflow:hidden; text-align:center; }
+  .sc-cell.sc-total .sc-head{ background:var(--text); }
+  .sc-head{ background:var(--accent); color:#fff; padding:5px 1px 3px; }
+  .sc-hole{ font-size:1.15rem; font-weight:900; line-height:1.1; }
+  .sc-par{ font-size:.78rem; font-weight:800; opacity:.9; }
+  .sc-body{ background:var(--bg); border:1.5px solid var(--border); border-top:none; padding:6px 1px; }
+  .sc-score{ font-size:1.5rem; font-weight:900; color:var(--text); min-width:1.7em; display:inline-block; border-radius:6px; padding:1px 0; }
+  .sc-score.birdie{ background:#2D7DD2; color:#fff; }
+  .sc-score.par{ background:#D9A400; color:#fff; }
+
+  .summarybar{ display:flex; align-items:center; gap:8px; font-size:.85rem; }
+  .summarybar .name{ width:78px; font-weight:800; }
+  .summarybar .track{ flex:1; height:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:7px; overflow:hidden; }
+  .summarybar .fill{ height:100%; background:var(--accent); }
+  .summarybar .val{ width:34px; text-align:right; font-weight:800; }
+
+  .btn-ghost{ background:none; border:1.75px solid var(--border); color:var(--text); border-radius:12px; padding:10px; font-weight:800; font-size:.9rem; }
+  .btn-ghost.redtext{ border-color:var(--danger); color:var(--danger); }
+  .btn-ghost.btn-sm2{ width:100%; padding:5px; font-size:.76rem; border-radius:9px; }
+  .btn-ghost:active{ background:var(--border); }
+  h2{ font-size:.95rem; margin:0; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); }
+  .lead{ color:var(--text-muted); font-size:.85rem; line-height:1.4; margin:0; }
+
+  .gpsnote{ font-size:.78rem; font-weight:700; text-align:center; padding:6px 8px; border-radius:9px; background:var(--bg); border:1.5px dashed var(--border); color:var(--text-muted); }
+  .gpsnote.ok{ border-color:var(--accent); color:var(--accent); }
+  .gpsnote.bad{ border-color:var(--danger); color:var(--danger); }
+</style>
+
+<div id="app"></div>
+
+<script>
+var CACOUNA_FRONT_BLANC=[357,352,108,384,321,140,457,312,486];
+var CACOUNA_FRONT_ROUGE=[292,249,108,281,284,125,396,250,421];
+var CACOUNA_BACK_BLANC=[364,342,108,356,339,162,469,318,505];
+var CACOUNA_BACK_ROUGE=[298,326,108,342,311,125,430,256,421];
+var CACOUNA_PARS9=[4,4,3,4,4,3,5,4,5];
+var COURSES = {
+  "Golf Cacouna": {
+    pars: CACOUNA_PARS9.concat(CACOUNA_PARS9),
+    tees: {
+      blanc: CACOUNA_FRONT_BLANC.concat(CACOUNA_BACK_BLANC),
+      rouge: CACOUNA_FRONT_ROUGE.concat(CACOUNA_BACK_ROUGE)
+    }
+  },
+  "Val-Neigette": {
+    pars: [4,5,4,3,4,4,5,3,4, 3,5,4,4,4,5,4,3,4],
+    tees: {
+      blanc: [315,472,373,100,304,346,482,138,323, 118,528,312,311,276,476,309,158,301],
+      rouge: [289,399,348,68,245,270,371,98,258, 107,434,262,218,224,372,247,93,266]
+    }
+  }
+};
+var DEFAULT_COURSE = "Golf Cacouna";
+var CLUBS=["Bois 1","Hybride 3","Bois 5","Fer 5","Fer 6","Fer 7","Fer 8","Fer 9","PW","SW"];
+var CLUB_SHORT={"Hybride 3":"Hybr 3"};
+function clubLabel(c){ return CLUB_SHORT[c] || c; }
+var STORE_KEY="calculDriveGPSState_v1";
+var GPS_PINS_KEY="calculDriveGPSPins_v1";
+
+function teeDist(n,tee){
+  var course = COURSES[ROUND.course] || COURSES[DEFAULT_COURSE];
+  var arr = (course.tees[tee] || course.tees.blanc || []);
+  return arr[n-1] || 0;
+}
+function parFor(n){
+  var course = COURSES[ROUND.course] || COURSES[DEFAULT_COURSE];
+  return (course.pars || [])[n-1] || 4;
+}
+
+// ---------------- GPS helpers ----------------
+function haversineMeters(a,b){
+  var R=6371000;
+  var toRad=function(x){ return x*Math.PI/180; };
+  var dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
+  var lat1=toRad(a.lat), lat2=toRad(b.lat);
+  var h = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2*Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+}
+function haversineVerges(a,b){ return haversineMeters(a,b) / 0.9144; }
+
+function loadPins(){
+  try{ var raw=localStorage.getItem(GPS_PINS_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return {};
+}
+function savePinGPS(course, holeNum, fix, source){
+  try{
+    var pins = loadPins();
+    if(!pins[course]) pins[course] = {};
+    pins[course][holeNum] = { lat:fix.lat, lon:fix.lon, accuracy:fix.accuracy||null, source:source||"gps-capture", savedAt:new Date().toISOString() };
+    localStorage.setItem(GPS_PINS_KEY, JSON.stringify(pins));
+  }catch(e){}
+}
+function getPinGPS(course, holeNum){
+  var pins = loadPins();
+  return (pins[course] && pins[course][holeNum]) || null;
+}
+
+// Coordonnées du centre de chaque vert, relevées par le user sur Google Earth (2026-09-15) —
+// plus précises qu'une prise GPS de téléphone sur le terrain, donc jamais écrasées automatiquement
+// (seule une recalibration manuelle explicite peut les remplacer).
+var PIN_SEED = {
+  "Val-Neigette": {
+    "1":  {lat:48.362056, lon:-68.485919},
+    "2":  {lat:48.358108, lon:-68.488956},
+    "3":  {lat:48.362044, lon:-68.486792},
+    "4":  {lat:48.361114, lon:-68.488489},
+    "5":  {lat:48.358725, lon:-68.490711},
+    "6":  {lat:48.356617, lon:-68.495111},
+    "7":  {lat:48.359542, lon:-68.490956},
+    "8":  {lat:48.361128, lon:-68.489361},
+    "9":  {lat:48.364464, lon:-68.484931},
+    "10": {lat:48.364019, lon:-68.487242},
+    "11": {lat:48.360733, lon:-68.491611},
+    "12": {lat:48.358433, lon:-68.495797},
+    "13": {lat:48.356903, lon:-68.500000},
+    "14": {lat:48.356981, lon:-68.496128},
+    "15": {lat:48.359692, lon:-68.491933},
+    "16": {lat:48.360733, lon:-68.490553},
+    "17": {lat:48.362017, lon:-68.489311},
+    "18": {lat:48.363711, lon:-68.482967}
+  }
+};
+(function seedPins(){
+  try{
+    var pins = loadPins();
+    var changed = false;
+    Object.keys(PIN_SEED).forEach(function(course){
+      if(!pins[course]) pins[course] = {};
+      Object.keys(PIN_SEED[course]).forEach(function(hole){
+        if(!pins[course][hole]){
+          var p = PIN_SEED[course][hole];
+          pins[course][hole] = { lat:p.lat, lon:p.lon, accuracy:null, source:"google-earth", savedAt:new Date().toISOString() };
+          changed = true;
+        }
+      });
+    });
+    if(changed) localStorage.setItem(GPS_PINS_KEY, JSON.stringify(pins));
+  }catch(e){}
+})();
+
+var GPS = { lastFix:null, watching:false, error:null };
+function onGeoSuccess(pos){
+  GPS.lastFix = { lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy };
+  GPS.error = null;
+  var hd = getHole(ROUND.cur);
+  if(hd.shots.length===0 && !hd.teeGPS){ hd.teeGPS = GPS.lastFix; saveRound(); }
+  updateSuggestion();
+}
+function onGeoError(err){
+  var code = err && err.code;
+  if(code===1) GPS.error = "Localisation refusée pour ce site — autorise la position dans Chrome (icône 🔒/ⓘ dans la barre d'adresse → Autorisations du site → Position → Autoriser), puis réessaie.";
+  else if(code===2) GPS.error = "Position indisponible — essaie à l'extérieur, à ciel ouvert.";
+  else if(code===3) GPS.error = "Recherche du signal GPS trop longue — réessaie.";
+  else GPS.error = "GPS indisponible — entrez la distance manuellement.";
+  GPS.watching = false;
+  render();
+}
+function startGPSWatch(){
+  if(GPS.watching) return;
+  if(!("geolocation" in navigator)){ GPS.error = "Géolocalisation non supportée par ce navigateur"; render(); return; }
+  GPS.watching = true;
+  navigator.geolocation.watchPosition(onGeoSuccess, onGeoError, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+}
+function computeSuggestedRemaining(hd){
+  if(!GPS.lastFix) return null;
+  var pin = getPinGPS(ROUND.course, ROUND.cur);
+  if(pin) return haversineVerges(GPS.lastFix, pin);
+  if(hd.teeGPS) return Math.max(0, hd.startDist - haversineVerges(GPS.lastFix, hd.teeGPS));
+  return null;
+}
+function updateSuggestion(){
+  if(!UI.locked) return;
+  var hd = getHole(ROUND.cur);
+  if(hd.onGreen) return;
+  if(UI.touched && !UI.gpsFilled) return;
+  var remain = computeSuggestedRemaining(hd);
+  if(remain==null) return;
+  UI.digits = String(Math.max(0, Math.round(remain)));
+  UI.touched = true;
+  UI.gpsFilled = true;
+  render();
+}
+function autoCapturePinIfPossible(){
+  if(!GPS.lastFix) return;
+  var existing = getPinGPS(ROUND.course, ROUND.cur);
+  if(existing && existing.source === "google-earth") return; // ne jamais écraser une source précise automatiquement
+  savePinGPS(ROUND.course, ROUND.cur, GPS.lastFix, "gps-capture");
+}
+
+var ROUND = loadRound();
+if(!ROUND.course || !COURSES[ROUND.course]) ROUND.course = DEFAULT_COURSE;
+if(ROUND.setupConfirmed === undefined){
+  ROUND.setupConfirmed = Object.keys(ROUND.holes).some(function(k){ return ROUND.holes[k].shots.length>0; });
+}
+var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, confirmingReset:false, editingStart:false };
+
+function loadRound(){
+  try{
+    var raw = localStorage.getItem(STORE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { tee:"blanc", course:DEFAULT_COURSE, cur:1, holes:{} };
+}
+function saveRound(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(ROUND)); }catch(e){}
+}
+
+function getHole(n){
+  if(!ROUND.holes[n]){
+    ROUND.holes[n] = { par:parFor(n), startDist:teeDist(n,ROUND.tee), shots:[], onGreen:false, putts:[null,null,null,null], score:null, teeGPS:null };
+  }
+  return ROUND.holes[n];
+}
+function beforeDist(hd){
+  if(hd.shots.length===0) return hd.startDist;
+  return hd.shots[hd.shots.length-1].after;
+}
+function defaultClubFor(hd){
+  var before = beforeDist(hd);
+  if(hd.shots.length===0 && before>200) return "Bois 1";
+  if(before>=100 && before<=120) return "Fer 7";
+  if(hd.shots.length>0 && hd.shots[hd.shots.length-1].club==="Bois 1") return "Hybride 3";
+  if(before>135) return "Bois 5";
+  return null;
+}
+var App = {
+  setTee:function(t){
+    ROUND.tee = t;
+    ROUND.holes = {};
+    saveRound(); render();
+  },
+  setCourse:function(c){
+    if(!COURSES[c]) return;
+    ROUND.course = c;
+    ROUND.holes = {};
+    saveRound(); render();
+  },
+  confirmSetup:function(){
+    ROUND.setupConfirmed = true;
+    saveRound(); render();
+  },
+  reopenSetup:function(){
+    ROUND.setupConfirmed = false;
+    saveRound(); render();
+  },
+  startEditDist:function(){ UI.editingStart=true; UI.digits=""; UI.touched=false; UI.gpsFilled=false; render(); },
+  cancelEditDist:function(){ UI.editingStart=false; UI.digits=""; UI.touched=false; UI.gpsFilled=false; render(); },
+  confirmEditDist:function(){
+    if(!UI.touched) return;
+    var hd = getHole(ROUND.cur);
+    var v = UI.digits===""?0:parseInt(UI.digits,10);
+    hd.startDist = v;
+    UI.editingStart=false; UI.digits=""; UI.touched=false; UI.gpsFilled=false;
+    saveRound(); render();
+  },
+  goHole:function(n){
+    if(n<1||n>18) return;
+    ROUND.cur = n; UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.puttTarget=null; UI.editingStart=false;
+    saveRound(); render();
+  },
+  pickClub:function(c){ UI.pendingClub = c; render(); },
+  lockShot:function(){
+    var hd = getHole(ROUND.cur);
+    var club = UI.pendingClub || defaultClubFor(hd);
+    if(!club) return;
+    UI.locked = club; UI.digits=""; UI.touched=false; UI.gpsFilled=false;
+    if(hd.shots.length===0 && !hd.teeGPS && GPS.lastFix){ hd.teeGPS = GPS.lastFix; saveRound(); }
+    render();
+    updateSuggestion();
+  },
+  cancelLock:function(){ UI.locked=null; UI.gpsFilled=false; render(); },
+  markOnGreen:function(){
+    var hd = getHole(ROUND.cur);
+    hd.onGreen = true;
+    autoCapturePinIfPossible();
+    UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.puttTarget=null;
+    saveRound(); render();
+  },
+  recalibratePin:function(){
+    if(!GPS.lastFix) return;
+    savePinGPS(ROUND.course, ROUND.cur, GPS.lastFix, "gps-capture");
+    render();
+  },
+  key:function(d){
+    if(!UI.touched || UI.gpsFilled){ UI.digits=""; UI.touched=true; UI.gpsFilled=false; }
+    if(UI.digits.length>=3) return;
+    UI.digits += d; render();
+  },
+  back:function(){
+    if(!UI.touched || UI.gpsFilled){ UI.digits=""; UI.touched=true; UI.gpsFilled=false; render(); return; }
+    UI.digits = UI.digits.slice(0,-1); render();
+  },
+  confirmShot:function(after){
+    var hd = getHole(ROUND.cur);
+    var club = UI.locked || UI.pendingClub || defaultClubFor(hd);
+    if(!club) return;
+    var before = beforeDist(hd);
+    var shown = UI.touched ? UI.digits : "";
+    var val = (after!==undefined) ? after : (shown===""?0:parseInt(shown,10));
+    hd.shots.push({ club:club, before:before, after:val });
+    UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false;
+    if(val===0){ hd.onGreen = true; UI.puttTarget=null; autoCapturePinIfPossible(); }
+    saveRound(); render();
+  },
+  selectPutt:function(i){
+    commitPuttEdit();
+    UI.puttTarget=i; UI.digits=""; UI.touched=false; render();
+  },
+  registerPutts:function(){
+    commitPuttEdit();
+    UI.puttTarget=null; UI.digits=""; UI.touched=false;
+    if(ROUND.cur<18){ ROUND.cur++; UI.pendingClub=null; UI.locked=null; UI.gpsFilled=false; }
+    saveRound(); render();
+  },
+  undoLastShot:function(){
+    var hd = getHole(ROUND.cur);
+    if(hd.shots.length>0){
+      hd.shots.pop();
+      hd.onGreen = false;
+    } else if(hd.onGreen){
+      hd.onGreen = false;
+    } else {
+      return;
+    }
+    UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.puttTarget=null;
+    saveRound(); render();
+  },
+  setScore:function(v){
+    var hd = getHole(ROUND.cur);
+    hd.score = v===""?null:parseInt(v,10);
+    saveRound(); render();
+  },
+  askResetRound:function(){
+    UI.confirmingReset = true; render();
+  },
+  cancelResetRound:function(){
+    UI.confirmingReset = false; render();
+  },
+  resetRound:function(){
+    ROUND = { tee:"blanc", course:ROUND.course || DEFAULT_COURSE, setupConfirmed:false, cur:1, holes:{} };
+    UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, confirmingReset:false };
+    saveRound(); render();
+  },
+  toggleExport:function(){ UI.showExport = !UI.showExport; render(); },
+  retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
+  copyExport:function(){
+    var ta = document.getElementById("export-text");
+    ta.select();
+    try{ document.execCommand("copy"); }catch(e){}
+  }
+};
+
+function puttTargetIndex(hd){
+  if(UI.puttTarget!==null) return UI.puttTarget;
+  for(var i=0;i<4;i++) if(hd.putts[i]===null) return i;
+  return 3;
+}
+function commitPuttEdit(){
+  if(!UI.touched) return;
+  var hd = getHole(ROUND.cur);
+  var i = puttTargetIndex(hd);
+  hd.putts[i] = UI.digits===""?null:parseInt(UI.digits,10);
+}
+
+function puttCount(hd){
+  return hd.putts.filter(function(p){ return p!==null; }).length;
+}
+function autoScore(hd){
+  var n = hd.shots.length + puttCount(hd);
+  if(hd.onGreen && UI.touched && UI.digits!==""){
+    var t = puttTargetIndex(hd);
+    if(hd.putts[t]===null) n += 1;
+  }
+  if(!hd.onGreen && UI.locked){
+    n += 1; // le coup a été frappé (bâton verrouillé), juste pas encore mesuré
+  }
+  return n;
+}
+function shotListHTML(hd){
+  var confirmed = hd.shots.map(function(s,i){
+    var dist = s.before - s.after;
+    if(s.after===0){
+      return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, vous êtes sur le vert</div>";
+    }
+    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+s.after+"v</b></div>";
+  }).join("");
+  var pending = "";
+  if(!hd.onGreen && UI.locked){
+    var n = hd.shots.length+1;
+    pending = "<div><b>C"+n+" "+UI.locked+"</b> — frappe faite, distance à venir&hellip;</div>";
+  }
+  if(hd.shots.length===0 && !pending) return "Aucun coup enregistré.";
+  return confirmed + pending;
+}
+// La 1re case n'est pas un coup roulé : c'est la distance en pieds en arrivant sur
+// le vert. Chaque coup roulé va d'une case à la suivante (longueur = case[m] - case[m+1]).
+// Le tout dernier coup roulé (celui qui rentre la balle) n'a pas sa propre case --
+// sa longueur est simplement la valeur de la dernière case remplie.
+function puttsListHTML(hd){
+  var filled = [];
+  for(var i=0;i<4;i++){ if(hd.putts[i]===null) break; filled.push(hd.putts[i]); }
+  var k = filled.length;
+  if(k===0) return "";
+  var parts = [];
+  for(var m=0; m<k-1; m++){
+    var n = hd.shots.length + m + 1;
+    var length = filled[m] - filled[m+1];
+    parts.push("<b>C"+n+" Roulé</b> <b>"+length+"pi</b>&rarr;<b>"+filled[m+1]+"pi</b>");
+  }
+  var nFinal = hd.shots.length + k;
+  parts.push("<b>C"+nFinal+" Roulé</b> <b>"+filled[k-1]+"pi</b>&rarr;rentré");
+  return "<div>"+parts.join(", ")+"</div>";
+}
+function shotsCardHTML(hd){
+  var sc = hd.score!==null ? hd.score : autoScore(hd);
+  var header = "<div style='display:flex;align-items:baseline;gap:7px'>" +
+    "<input class='scoreinput' style='width:42px;font-size:1.15rem;padding:3px' type='number' inputmode='numeric' value='"+(sc!==null?sc:"")+"' onchange='App.setScore(this.value)'>" +
+    "<h2>coups joués sur ce trou</h2>" +
+  "</div>";
+  return "<div class='card'>"+header+"<div class='shotlist'>"+shotListHTML(hd)+puttsListHTML(hd)+"</div></div>";
+}
+
+function keypadHTML(defaultVal){
+  var shown = UI.touched ? UI.digits : String(defaultVal===undefined?"":defaultVal);
+  var html = "";
+  html += "<div class='keydisplay'>"+(shown===""?"&nbsp;":shown)+"</div>";
+  html += "<div class='keypad'>";
+  [1,2,3,4,5,6,7,8,9].forEach(function(d){
+    html += "<button class='keybtn' onclick='App.key(\""+d+"\")'>"+d+"</button>";
+  });
+  html += "<button class='keybtn' onclick='App.back()'>&larr;</button>";
+  html += "<button class='keybtn' onclick='App.key(\"0\")'>0</button>";
+  html += "</div>";
+  return html;
+}
+
+function gpsStatusHTML(hd){
+  if(UI.gpsFilled){
+    var acc = (GPS.lastFix && GPS.lastFix.accuracy) ? " (±"+Math.round(GPS.lastFix.accuracy)+"m)" : "";
+    var pin = getPinGPS(ROUND.course, ROUND.cur);
+    var src = pin ? (pin.source==="google-earth" ? "depuis le drapeau (Google Earth)" : "depuis le drapeau enregistré") : "estimée depuis le départ";
+    return "<div class='gpsnote ok'>📍 Distance suggérée par GPS"+acc+" — "+src+", modifiable ci-dessous</div>";
+  }
+  if(GPS.error){
+    return "<div class='gpsnote bad'>📍 "+GPS.error+" <button class='linklike' onclick='App.retryGPS()'>réessayer</button></div>";
+  }
+  if(!GPS.lastFix){
+    return "<div class='gpsnote'>📍 Recherche du signal GPS&hellip;</div>";
+  }
+  return "";
+}
+
+function render(){
+  var hd = getHole(ROUND.cur);
+  var html = "";
+
+  html += "<div class='holebar'>";
+  html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur-1)+")'"+(ROUND.cur<=1?" disabled":"")+">&#9664;</button>";
+  html += "<div class='holebadge'><div class='prog'>Trou "+ROUND.cur+" / 18</div><div class='sub'>Par "+hd.par+" &middot; "+ROUND.course+"</div></div>";
+  html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur+1)+")'"+(ROUND.cur>=18?" disabled":"")+">&#9654;</button>";
+  html += "</div>";
+
+  if(!ROUND.setupConfirmed){
+    html += "<div class='teerow'>";
+    Object.keys(COURSES).forEach(function(c){
+      html += "<button class='teebtn"+(ROUND.course===c?" sel":"")+"' onclick='App.setCourse(\""+c+"\")'>"+c+"</button>";
+    });
+    html += "</div>";
+    html += "<div class='teerow'>";
+    html += "<button class='teebtn blanc"+(ROUND.tee==="blanc"?" sel":"")+"' onclick='App.setTee(\"blanc\")'>Départ Blanc</button>";
+    html += "<button class='teebtn rouge"+(ROUND.tee==="rouge"?" sel":"")+"' onclick='App.setTee(\"rouge\")'>Départ Rouge</button>";
+    html += "</div>";
+    html += "<button class='okbtn' onclick='App.confirmSetup()'>&#9989; C'est parti</button>";
+  } else {
+    html += "<div class='lead' style='text-align:center'>Vous avez choisi <b style='color:var(--accent)'>"+ROUND.course+"</b> à partir de <b style='color:var(--accent)'>"+(ROUND.tee==="rouge"?"Rouge":"Blanc")+"</b> <button class='linklike' onclick='App.reopenSetup()'>changer</button></div>";
+  }
+
+  html += shotsCardHTML(hd);
+
+  if(!hd.onGreen){
+    var before = beforeDist(hd);
+    var def = defaultClubFor(hd);
+    var effective = UI.pendingClub || def;
+
+    html += "<div class='card'>";
+    var distLabel = hd.shots.length===0 ? "Distance de ce trou" : "Distance restante";
+    var canEditStart = hd.shots.length===0;
+    html += "<div class='distbox'"+(canEditStart?" ondblclick='App.startEditDist()'":"")+"><span class='dlabel'>"+distLabel+" :</span> <span class='dnum'>"+before+"<span class='dunit'>v</span></span>"+(canEditStart?" <button class='linklike' onclick='App.startEditDist()'>modifier</button>":"")+"</div>";
+
+    if(canEditStart && UI.editingStart){
+      html += "<div class='lead' style='text-align:center'>Corriger la distance de départ (verges)</div>";
+      html += keypadHTML(String(hd.startDist));
+      html += "<div style='display:flex;gap:8px'>";
+      html += "<button class='btn-ghost' style='flex:1' onclick='App.cancelEditDist()'>Annuler</button>";
+      html += "<button class='okbtn' style='flex:2'"+(!UI.touched?" disabled":"")+" onclick='App.confirmEditDist()'>&#9989; OK</button>";
+      html += "</div>";
+    } else if(!UI.locked){
+      html += "<div class='clubgrid'>";
+      CLUBS.forEach(function(c){
+        html += "<button class='clubbtn"+(effective===c?" sel":"")+"' onclick='App.pickClub(\""+c+"\")'>"+clubLabel(c)+"</button>";
+      });
+      html += "</div>";
+      html += "<div style='display:flex;gap:8px'>";
+      html += "<button class='shotbtn' style='flex:2'"+(!effective?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
+      html += "<button class='greenbtn' style='flex:1' onclick='App.markOnGreen()'>&#9971; Vert</button>";
+      html += "</div>";
+    } else {
+      html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>, vous êtes à quelle distance du vert ? <button class='linklike' onclick='App.cancelLock()'>changer</button></div>";
+      html += gpsStatusHTML(hd);
+      html += keypadHTML("");
+      html += "<div style='display:flex;gap:8px'>";
+      html += "<button class='greenbtn' style='flex:1' onclick='App.confirmShot(0)'>&#9971; Vert</button>";
+      html += "<button class='okbtn' style='flex:2'"+(!UI.touched?" disabled":"")+" onclick='App.confirmShot()'>&#9989; OK</button>";
+      html += "</div>";
+    }
+    html += "</div>";
+  } else {
+    html += "<div class='card'>";
+    var pinHere = getPinGPS(ROUND.course, ROUND.cur);
+    html += "<h2>Roulés (1e case = distance en arrivant sur le vert)</h2>";
+    var pinLabel = pinHere ? (pinHere.source==="google-earth" ? "🚩 Position du vert (Google Earth) enregistrée pour ce trou" : "🚩 Position du vert enregistrée pour ce trou") : "🚩 Position du vert non enregistrée";
+    html += "<div class='gpsnote"+(pinHere?" ok":"")+"'>" + pinLabel + " <button class='linklike' style='margin-left:6px' onclick='App.recalibratePin()'>"+(pinHere?"recalibrer":"enregistrer maintenant")+"</button></div>";
+    var target = puttTargetIndex(hd);
+    html += "<div class='puttrow'>";
+    [0,1,2,3].forEach(function(i){
+      var v = (i===target && UI.touched) ? (UI.digits===""?null:UI.digits) : hd.putts[i];
+      html += "<button class='puttbox"+(v===null?" empty":"")+(i===target?" active":"")+"' onclick='App.selectPutt("+i+")'>";
+      html += "<div class='plabel'>"+(i+1)+"e</div><div class='pval'>"+(v===null?"—":v)+"</div>";
+      html += "</button>";
+    });
+    html += "</div>";
+    html += keypadHTML();
+    html += "<button class='okbtn' onclick='App.registerPutts()'>&#9989; Passer au trou suivant</button>";
+    html += "</div>";
+  }
+
+  if(ROUND.cur===18 && hd.score!==null){
+    html += "<div class='card'>";
+    html += "<h2>Résumé par bâton (fin de ronde)</h2>";
+    html += summaryHTML();
+    html += "</div>";
+  }
+
+  html += "<div style='display:flex;gap:8px'>";
+  html += "<button class='btn-ghost redtext' style='flex:1' onclick='App.toggleExport()'>&#128228; "+(UI.showExport?"Cacher":"Fin / Exporter")+"</button>";
+  html += "<button class='btn-ghost' style='flex:1' onclick='App.askResetRound()'>&#128465; Effacer la ronde</button>";
+  html += "</div>";
+  if(UI.showExport){
+    var txt = exportText();
+    html += "<div class='card'>";
+    html += "<h2>Résumé à copier</h2>";
+    html += "<textarea id='export-text' readonly onclick='this.select()' style='width:100%;min-height:220px;font-family:monospace;font-size:.85rem;padding:8px;border-radius:10px;border:1.75px solid var(--border);background:var(--bg);color:var(--text);'>"+txt.replace(/&/g,"&amp;").replace(/</g,"&lt;")+"</textarea>";
+    html += "<button class='btn-ghost' onclick='App.copyExport()'>&#128203; Copier le texte</button>";
+    html += "<a class='btn-ghost' style='display:block;text-align:center;text-decoration:none' href='mailto:claudiuspokus555@gmail.com?subject="+encodeURIComponent("Calcul de Drive - ronde")+"&body="+encodeURIComponent(txt)+"'>&#9993; Envoyer par courriel</a>";
+    html += "</div>";
+  }
+
+  if(UI.confirmingReset){
+    html += "<div class='card'><div class='lead' style='text-align:center'>Effacer toute la ronde en cours ? Cette action est irréversible.</div>";
+    html += "<div style='display:flex;gap:8px'>";
+    html += "<button class='btn-ghost' style='flex:1' onclick='App.cancelResetRound()'>Annuler</button>";
+    html += "<button class='shotbtn' style='flex:1' onclick='App.resetRound()'>&#128465; Oui, effacer</button>";
+    html += "</div></div>";
+  }
+
+  if(hd.shots.length>0 || hd.onGreen){
+    html += "<button class='btn-ghost btn-sm2' onclick='App.undoLastShot()'>&#8630; Annuler le dernier coup</button>";
+  }
+
+  html += scoreTableHTML();
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function holeScoreDisplay(n){
+  var hd = ROUND.holes[n];
+  if(!hd) return null;
+  if(hd.score!==null) return hd.score;
+  if(hd.shots.length>0 || hd.onGreen) return autoScore(hd);
+  return null;
+}
+function scoreCellHTML(headLabel, subLabel, par, sc, isTotal){
+  var scoreClass = "sc-score";
+  if(sc!==null && !isTotal){
+    if(sc < par) scoreClass += " birdie";
+    else if(sc === par) scoreClass += " par";
+  }
+  return "<div class='sc-cell"+(isTotal?" sc-total":"")+"'>" +
+    "<div class='sc-head'><div class='sc-hole'>"+headLabel+"</div><div class='sc-par'>"+subLabel+"</div></div>" +
+    "<div class='sc-body'><span class='"+scoreClass+"'>"+(sc!==null?sc:"&ndash;")+"</span></div>" +
+  "</div>";
+}
+function scoreBlockHTML(startHole, label){
+  var cells = "", total = 0, totalPar = 0, any = false;
+  for(var n=startHole; n<startHole+9; n++){
+    var hd = ROUND.holes[n];
+    var par = hd ? hd.par : parFor(n);
+    var sc = holeScoreDisplay(n);
+    totalPar += par;
+    if(sc!==null){ total += sc; any = true; }
+    cells += scoreCellHTML(n, par, par, sc, false);
+  }
+  cells += scoreCellHTML(label, totalPar, totalPar, any?total:null, true);
+  return { html:"<div class='scoregrid'>"+cells+"</div>", total:total, totalPar:totalPar, any:any };
+}
+function scoreTableHTML(){
+  var out = scoreBlockHTML(1, "OUT");
+  var inn = scoreBlockHTML(10, "IN");
+  var html = "<div class='card'><h2>Pointage</h2>" + out.html + inn.html;
+  if(out.any || inn.any){
+    var total = out.total + inn.total;
+    var totalPar = out.totalPar + inn.totalPar;
+    var diff = total - totalPar;
+    html += "<div class='lead' style='text-align:center;font-weight:800'>Total ronde : "+total+" (par "+totalPar+", "+(diff>=0?"+":"")+diff+")</div>";
+  }
+  html += "</div>";
+  return html;
+}
+function summaryHTML(){
+  var agg = {};
+  Object.keys(ROUND.holes).forEach(function(n){
+    ROUND.holes[n].shots.forEach(function(s){
+      var dist = s.before - s.after;
+      if(!agg[s.club]) agg[s.club] = {n:0,sum:0};
+      agg[s.club].n++; agg[s.club].sum += dist;
+    });
+  });
+  var clubs = Object.keys(agg);
+  if(clubs.length===0) return "<div class='lead'>Aucun coup enregistré pour l'instant.</div>";
+  var maxAvg = 0;
+  clubs.forEach(function(c){ maxAvg = Math.max(maxAvg, agg[c].sum/agg[c].n); });
+  return clubs.map(function(c){
+    var avg = Math.round(agg[c].sum/agg[c].n);
+    var pct = maxAvg>0 ? Math.round(avg/maxAvg*100) : 0;
+    return "<div class='summarybar'><div class='name'>"+c+"</div><div class='track'><div class='fill' style='width:"+pct+"%'></div></div><div class='val'>"+avg+"v</div></div>";
+  }).join("");
+}
+
+function exportText(){
+  var d = new Date();
+  var dateStr = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  var lines = [];
+  lines.push("Calcul de Drive - Ronde du "+dateStr);
+  lines.push("Terrain : "+ROUND.course);
+  lines.push("Départ : "+(ROUND.tee==="rouge"?"Rouge":"Blanc"));
+  lines.push("");
+  var holeNums = Object.keys(ROUND.holes).map(Number).sort(function(a,b){ return a-b; });
+  holeNums.forEach(function(n){
+    var h = ROUND.holes[n];
+    if(h.shots.length===0 && puttCount(h)===0) return;
+    var sc = h.score!==null ? h.score : (h.shots.length+puttCount(h));
+    lines.push("Trou "+n+" (Par "+h.par+") — Score "+sc);
+    h.shots.forEach(function(s,i){
+      var dist = s.before-s.after;
+      lines.push("  C"+(i+1)+" "+s.club+" : "+dist+"v (reste "+s.after+"v)");
+    });
+    var puttVals = [];
+    for(var i=0;i<4;i++){ if(h.putts[i]===null) break; puttVals.push(h.putts[i]); }
+    var k = puttVals.length;
+    if(k>0){
+      var missed = [];
+      for(var m=0;m<k-1;m++){
+        var n2 = h.shots.length+m+1;
+        var length = puttVals[m]-puttVals[m+1];
+        lines.push("  C"+n2+" Roulé : "+length+"pi (reste "+puttVals[m+1]+"pi)");
+        missed.push(length+"pi");
+      }
+      var nFinal = h.shots.length+k;
+      lines.push("  C"+nFinal+" Roulé : "+puttVals[k-1]+"pi (rentré)");
+      if(missed.length) lines.push("  Putts manqués : "+missed.join(", "));
+    }
+    lines.push("");
+  });
+  lines.push("--- Résumé par bâton ---");
+  var agg = {};
+  holeNums.forEach(function(n){
+    ROUND.holes[n].shots.forEach(function(s){
+      var dist = s.before-s.after;
+      if(!agg[s.club]) agg[s.club] = {n:0,sum:0};
+      agg[s.club].n++; agg[s.club].sum += dist;
+    });
+  });
+  Object.keys(agg).forEach(function(c){
+    lines.push(c+" : "+agg[c].n+" coups, moyenne "+Math.round(agg[c].sum/agg[c].n)+"v");
+  });
+  return lines.join("\n");
+}
+
+render();
+startGPSWatch();
+</script>

@@ -264,12 +264,15 @@ function startGPSWatch(){
   navigator.geolocation.watchPosition(onGeoSuccess, onGeoError, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
 }
 var MAX_REALISTIC_VERGES = 700; // au-delà, le GPS n'est clairement pas sur ce terrain (ex. test à la maison)
-function computeSuggestedRemaining(hd){
+function rawSuggestedRemaining(hd){
   if(!GPS.lastFix) return null;
   var pin = getPinGPS(ROUND.course, ROUND.cur);
-  var remain = null;
-  if(pin) remain = haversineVerges(GPS.lastFix, pin);
-  else if(hd.teeGPS) remain = Math.max(0, hd.startDist - haversineVerges(GPS.lastFix, hd.teeGPS));
+  if(pin) return haversineVerges(GPS.lastFix, pin);
+  if(hd.teeGPS) return Math.max(0, hd.startDist - haversineVerges(GPS.lastFix, hd.teeGPS));
+  return null;
+}
+function computeSuggestedRemaining(hd){
+  var remain = rawSuggestedRemaining(hd);
   if(remain != null && remain > MAX_REALISTIC_VERGES) return null;
   return remain;
 }
@@ -574,6 +577,10 @@ function gpsStatusHTML(hd){
   }
   if(!GPS.lastFix){
     return "<div class='gpsnote'>📍 Recherche du signal GPS&hellip;</div>";
+  }
+  var raw = rawSuggestedRemaining(hd);
+  if(raw != null && raw > MAX_REALISTIC_VERGES){
+    return "<div class='gpsnote bad'>📍 GPS trop loin du terrain ("+Math.round(raw)+"v estimé) — entrez la distance manuellement</div>";
   }
   return "";
 }

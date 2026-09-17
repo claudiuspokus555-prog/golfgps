@@ -272,9 +272,7 @@ function rawSuggestedRemaining(hd){
   return null;
 }
 function computeSuggestedRemaining(hd){
-  var remain = rawSuggestedRemaining(hd);
-  if(remain != null && remain > MAX_REALISTIC_VERGES) return null;
-  return remain;
+  return rawSuggestedRemaining(hd);
 }
 function updateSuggestion(){
   if(!UI.locked) return;
@@ -570,6 +568,10 @@ function gpsStatusHTML(hd){
     var acc = (GPS.lastFix && GPS.lastFix.accuracy) ? " (±"+Math.round(GPS.lastFix.accuracy)+"m)" : "";
     var pin = getPinGPS(ROUND.course, ROUND.cur);
     var src = pin ? (pin.source==="google-earth" ? "depuis le drapeau (Google Earth)" : "depuis le drapeau enregistré") : "estimée depuis le départ";
+    var raw = rawSuggestedRemaining(hd);
+    if(raw != null && raw > MAX_REALISTIC_VERGES){
+      return "<div class='gpsnote bad'>📍 Distance suggérée par GPS"+acc+" — "+src+", mais elle semble irréaliste (peut-être pas encore sur le terrain) — vérifie et corrige au besoin ci-dessous</div>";
+    }
     return "<div class='gpsnote ok'>📍 Distance suggérée par GPS"+acc+" — "+src+", modifiable ci-dessous</div>";
   }
   if(GPS.error){
@@ -577,10 +579,6 @@ function gpsStatusHTML(hd){
   }
   if(!GPS.lastFix){
     return "<div class='gpsnote'>📍 Recherche du signal GPS&hellip;</div>";
-  }
-  var raw = rawSuggestedRemaining(hd);
-  if(raw != null && raw > MAX_REALISTIC_VERGES){
-    return "<div class='gpsnote bad'>📍 GPS trop loin du terrain ("+Math.round(raw)+"v estimé) — entrez la distance manuellement</div>";
   }
   return "";
 }

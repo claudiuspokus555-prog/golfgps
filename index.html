@@ -181,7 +181,7 @@ var PIN_SEED = {
   "Val-Neigette": {
     "1":  {lat:48.362056, lon:-68.485919},
     "2":  {lat:48.358108, lon:-68.488956},
-    "3":  {lat:48.362044, lon:-68.486792},
+    "3":  {lat:48.361967, lon:-68.486792},
     "4":  {lat:48.361114, lon:-68.488489},
     "5":  {lat:48.358725, lon:-68.490711},
     "6":  {lat:48.356617, lon:-68.495111},
@@ -191,7 +191,7 @@ var PIN_SEED = {
     "10": {lat:48.364019, lon:-68.487242},
     "11": {lat:48.360733, lon:-68.491611},
     "12": {lat:48.358433, lon:-68.495797},
-    "13": {lat:48.356903, lon:-68.500000},
+    "13": {lat:48.356898, lon:-68.499703},
     "14": {lat:48.356981, lon:-68.496128},
     "15": {lat:48.359692, lon:-68.491933},
     "16": {lat:48.360733, lon:-68.490553},
@@ -206,10 +206,13 @@ var PIN_SEED = {
     Object.keys(PIN_SEED).forEach(function(course){
       if(!pins[course]) pins[course] = {};
       Object.keys(PIN_SEED[course]).forEach(function(hole){
-        if(!pins[course][hole]){
+        var existing = pins[course][hole];
+        if(!existing || existing.source === "google-earth"){
           var p = PIN_SEED[course][hole];
-          pins[course][hole] = { lat:p.lat, lon:p.lon, accuracy:null, source:"google-earth", savedAt:new Date().toISOString() };
-          changed = true;
+          if(!existing || existing.lat !== p.lat || existing.lon !== p.lon){
+            pins[course][hole] = { lat:p.lat, lon:p.lon, accuracy:null, source:"google-earth", savedAt:new Date().toISOString() };
+            changed = true;
+          }
         }
       });
     });
@@ -586,6 +589,9 @@ function render(){
     } else {
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>, vous êtes à quelle distance du vert ? <button class='linklike' onclick='App.cancelLock()'>changer</button></div>";
       html += gpsStatusHTML(hd);
+      if(GPS.lastFix){
+        html += "<button class='shotbtn' style='margin-top:2px' onclick='App.recalibratePin()'>📍 MODIF GPS VERT</button>";
+      }
       html += keypadHTML("");
       html += "<div style='display:flex;gap:8px'>";
       html += "<button class='greenbtn' style='flex:1' onclick='App.confirmShot(0)'>&#9971; Vert</button>";

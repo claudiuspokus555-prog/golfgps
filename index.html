@@ -263,12 +263,15 @@ function startGPSWatch(){
   GPS.watching = true;
   navigator.geolocation.watchPosition(onGeoSuccess, onGeoError, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
 }
+var MAX_REALISTIC_VERGES = 700; // au-delà, le GPS n'est clairement pas sur ce terrain (ex. test à la maison)
 function computeSuggestedRemaining(hd){
   if(!GPS.lastFix) return null;
   var pin = getPinGPS(ROUND.course, ROUND.cur);
-  if(pin) return haversineVerges(GPS.lastFix, pin);
-  if(hd.teeGPS) return Math.max(0, hd.startDist - haversineVerges(GPS.lastFix, hd.teeGPS));
-  return null;
+  var remain = null;
+  if(pin) remain = haversineVerges(GPS.lastFix, pin);
+  else if(hd.teeGPS) remain = Math.max(0, hd.startDist - haversineVerges(GPS.lastFix, hd.teeGPS));
+  if(remain != null && remain > MAX_REALISTIC_VERGES) return null;
+  return remain;
 }
 function updateSuggestion(){
   if(!UI.locked) return;
@@ -281,6 +284,18 @@ function updateSuggestion(){
   UI.touched = true;
   UI.gpsFilled = true;
   render();
+}
+function resetCoursePinsToGoogleEarth(course){
+  if(!PIN_SEED[course]) return;
+  try{
+    var pins = loadPins();
+    pins[course] = {};
+    Object.keys(PIN_SEED[course]).forEach(function(hole){
+      var p = PIN_SEED[course][hole];
+      pins[course][hole] = { lat:p.lat, lon:p.lon, accuracy:null, source:"google-earth", savedAt:new Date().toISOString() };
+    });
+    localStorage.setItem(GPS_PINS_KEY, JSON.stringify(pins));
+  }catch(e){}
 }
 function autoCapturePinIfPossible(){
   if(!GPS.lastFix) return;
@@ -339,6 +354,11 @@ var App = {
   },
   confirmSetup:function(){
     ROUND.setupConfirmed = true;
+    if(PIN_SEED[ROUND.course]){
+      if(confirm("Réinitialiser les repères GPS de "+ROUND.course+" à leur position Google Earth d'origine avant de commencer ?")){
+        resetCoursePinsToGoogleEarth(ROUND.course);
+      }
+    }
     saveRound(); render();
   },
   reopenSetup:function(){
@@ -386,15 +406,7 @@ var App = {
   resetCoursePins:function(){
     if(!PIN_SEED[ROUND.course]) return;
     if(!confirm("Effacer toutes tes corrections manuelles pour "+ROUND.course+" et remettre les positions Google Earth d'origine ?")) return;
-    try{
-      var pins = loadPins();
-      pins[ROUND.course] = {};
-      Object.keys(PIN_SEED[ROUND.course]).forEach(function(hole){
-        var p = PIN_SEED[ROUND.course][hole];
-        pins[ROUND.course][hole] = { lat:p.lat, lon:p.lon, accuracy:null, source:"google-earth", savedAt:new Date().toISOString() };
-      });
-      localStorage.setItem(GPS_PINS_KEY, JSON.stringify(pins));
-    }catch(e){}
+    resetCoursePinsToGoogleEarth(ROUND.course);
     render();
   },
   key:function(d){

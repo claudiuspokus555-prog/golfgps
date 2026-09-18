@@ -306,9 +306,17 @@ function autoCapturePinIfPossible(){
 }
 
 var ROUND = loadRound();
-if(!ROUND.course || !COURSES[ROUND.course]) ROUND.course = DEFAULT_COURSE;
-if(ROUND.setupConfirmed === undefined){
-  ROUND.setupConfirmed = Object.keys(ROUND.holes).some(function(k){ return ROUND.holes[k].shots.length>0; });
+if(ROUND.course && !COURSES[ROUND.course]) ROUND.course = null;
+var hasAnyShots = Object.keys(ROUND.holes).some(function(k){ return ROUND.holes[k].shots.length>0 || ROUND.holes[k].onGreen; });
+if(!hasAnyShots){
+  // Tant qu'aucun coup n'a été frappé, on repart toujours sur un choix de terrain/départ vierge,
+  // même si une confirmation précédente était sauvegardée — évite de reprendre par défaut
+  // le dernier terrain joué sans que l'utilisateur l'ait re-choisi consciemment.
+  ROUND.course = null;
+  ROUND.tee = null;
+  ROUND.setupConfirmed = false;
+} else if(ROUND.setupConfirmed === undefined){
+  ROUND.setupConfirmed = true;
 }
 var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, confirmingReset:false, editingStart:false };
 
@@ -317,7 +325,7 @@ function loadRound(){
     var raw = localStorage.getItem(STORE_KEY);
     if(raw) return JSON.parse(raw);
   }catch(e){}
-  return { tee:"blanc", course:DEFAULT_COURSE, cur:1, holes:{} };
+  return { tee:null, course:null, cur:1, holes:{} };
 }
 function saveRound(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(ROUND)); }catch(e){}
@@ -354,6 +362,7 @@ var App = {
     saveRound(); render();
   },
   confirmSetup:function(){
+    if(!ROUND.course || !ROUND.tee) return;
     ROUND.setupConfirmed = true;
     if(PIN_SEED[ROUND.course]){
       if(confirm("Réinitialiser les repères GPS de "+ROUND.course+" à leur position Google Earth d'origine avant de commencer ?")){
@@ -466,7 +475,7 @@ var App = {
     UI.confirmingReset = false; render();
   },
   resetRound:function(){
-    ROUND = { tee:"blanc", course:ROUND.course || DEFAULT_COURSE, setupConfirmed:false, cur:1, holes:{} };
+    ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{} };
     UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, confirmingReset:false };
     saveRound(); render();
   },
@@ -589,11 +598,12 @@ function render(){
 
   html += "<div class='holebar'>";
   html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur-1)+")'"+(ROUND.cur<=1?" disabled":"")+">&#9664;</button>";
-  html += "<div class='holebadge'><div class='prog'>Trou "+ROUND.cur+" / 18</div><div class='sub'>Par "+hd.par+" &middot; "+ROUND.course+"</div></div>";
+  html += "<div class='holebadge'><div class='prog'>Trou "+ROUND.cur+" / 18</div><div class='sub'>Par "+hd.par+" &middot; "+(ROUND.course||"&mdash;")+"</div></div>";
   html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur+1)+")'"+(ROUND.cur>=18?" disabled":"")+">&#9654;</button>";
   html += "</div>";
 
   if(!ROUND.setupConfirmed){
+    html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez l'endroit de jeu et vos départs</div>";
     html += "<div class='teerow'>";
     Object.keys(COURSES).forEach(function(c){
       html += "<button class='teebtn"+(ROUND.course===c?" sel":"")+"' onclick='App.setCourse(\""+c+"\")'>"+c+"</button>";
@@ -603,8 +613,12 @@ function render(){
     html += "<button class='teebtn blanc"+(ROUND.tee==="blanc"?" sel":"")+"' onclick='App.setTee(\"blanc\")'>Départ Blanc</button>";
     html += "<button class='teebtn rouge"+(ROUND.tee==="rouge"?" sel":"")+"' onclick='App.setTee(\"rouge\")'>Départ Rouge</button>";
     html += "</div>";
-    html += "<button class='okbtn' onclick='App.confirmSetup()'>&#9989; C'est parti</button>";
-    if(PIN_SEED[ROUND.course]){
+    if(ROUND.course && ROUND.tee){
+      var teeLabel = ROUND.tee==="rouge" ? "Rouge" : "Blanc";
+      html += "<div class='lead' style='text-align:center'>Vous avez choisi de jouer au golf de <b style='color:var(--accent)'>"+ROUND.course+"</b> et de démarrer sur le départ des <b style='color:var(--accent)'>"+teeLabel+"</b>.</div>";
+      html += "<button class='okbtn' onclick='App.confirmSetup()'>&#9989; Je confirme</button>";
+    }
+    if(ROUND.course && PIN_SEED[ROUND.course]){
       html += "<button class='linklike' style='display:block;margin:4px auto 0' onclick='App.resetCoursePins()'>🔄 Réinitialiser les repères GPS de "+ROUND.course+"</button>";
     }
   } else {

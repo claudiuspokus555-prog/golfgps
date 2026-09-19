@@ -103,6 +103,18 @@
   .gpsnote{ font-size:.78rem; font-weight:700; text-align:center; padding:6px 8px; border-radius:9px; background:var(--bg); border:1.5px dashed var(--border); color:var(--text-muted); }
   .gpsnote.ok{ border-color:var(--accent); color:var(--accent); }
   .gpsnote.bad{ border-color:var(--danger); color:var(--danger); }
+
+  @keyframes confirmFlash{
+    0%{ box-shadow:0 0 0 0 rgba(27,92,59,.55); transform:scale(1.035); }
+    70%{ box-shadow:0 0 0 16px rgba(27,92,59,0); }
+    100%{ box-shadow:0 0 0 0 rgba(27,92,59,0); transform:scale(1); }
+  }
+  .confirm-flash{ animation:confirmFlash .7s ease-out; }
+
+  .micbtn{ background:none; border:1.5px solid var(--border); border-radius:8px; padding:2px 9px; font-size:.85rem; margin-left:6px; font-weight:800; color:var(--text); }
+  .micbtn.recording{ border-color:var(--danger); color:var(--danger); }
+  .voicenote{ font-size:.8rem; color:var(--text-muted); font-style:italic; margin:2px 0 4px 4px; }
+  .voicenote.interim{ opacity:.6; }
 </style>
 
 <div id="app"></div>
@@ -305,6 +317,74 @@ function autoCapturePinIfPossible(){
   savePinGPS(ROUND.course, ROUND.cur, GPS.lastFix, "gps-capture");
 }
 
+// ---------------- Note vocale (Web Speech API — reconnaissance intégrée à Chrome, aucun serveur) ----------------
+function escapeHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+var SpeechRecCtor = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+var VoiceNote = { active:false, hole:null, shotIdx:null, recognizer:null, silenceTimer:null, interim:"" };
+function startVoiceNote(hole, shotIdx){
+  if(!SpeechRecCtor){ alert("La reconnaissance vocale n'est pas supportée par ce navigateur — utilise Chrome."); return; }
+  if(VoiceNote.active && VoiceNote.recognizer){ try{ VoiceNote.recognizer.stop(); }catch(e){} }
+  var rec = new SpeechRecCtor();
+  rec.lang = "fr-CA";
+  rec.continuous = true;
+  rec.interimResults = true;
+  var finalText = "";
+  VoiceNote.active = true;
+  VoiceNote.hole = hole;
+  VoiceNote.shotIdx = shotIdx;
+  VoiceNote.recognizer = rec;
+  VoiceNote.interim = "";
+  function resetSilenceTimer(){
+    if(VoiceNote.silenceTimer) clearTimeout(VoiceNote.silenceTimer);
+    VoiceNote.silenceTimer = setTimeout(function(){ try{ rec.stop(); }catch(e){} }, 5000);
+  }
+  rec.onresult = function(e){
+    var interim = "";
+    for(var i=e.resultIndex; i<e.results.length; i++){
+      var t = e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText += t + " ";
+      else interim += t;
+    }
+    VoiceNote.interim = interim;
+    resetSilenceTimer();
+    render();
+  };
+  rec.onerror = function(e){
+    if(VoiceNote.silenceTimer) clearTimeout(VoiceNote.silenceTimer);
+    VoiceNote.active = false; VoiceNote.recognizer = null; VoiceNote.hole = null; VoiceNote.shotIdx = null; VoiceNote.interim = "";
+    var msg = "Erreur du micro — réessaie.";
+    if(e.error === "not-allowed" || e.error === "permission-denied") msg = "Micro refusé — autorise le micro pour ce site dans Chrome (Paramètres des sites), puis réessaie.";
+    else if(e.error === "no-speech") msg = "Rien entendu, réessaie.";
+    else if(e.error === "network") msg = "La reconnaissance vocale a besoin d'internet — vérifie ta connexion.";
+    alert(msg);
+    render();
+  };
+  rec.onend = function(){
+    if(VoiceNote.silenceTimer) clearTimeout(VoiceNote.silenceTimer);
+    var hd = ROUND.holes[hole];
+    var text = (finalText + VoiceNote.interim).trim();
+    if(hd && hd.shots[shotIdx] && text){
+      hd.shots[shotIdx].note = text;
+      saveRound();
+    }
+    VoiceNote.active = false; VoiceNote.recognizer = null; VoiceNote.hole = null; VoiceNote.shotIdx = null; VoiceNote.interim = "";
+    render();
+  };
+  resetSilenceTimer();
+  try{ rec.start(); }catch(err){ VoiceNote.active = false; VoiceNote.recognizer = null; }
+  render();
+}
+function stopVoiceNote(){
+  if(VoiceNote.recognizer){ try{ VoiceNote.recognizer.stop(); }catch(e){} }
+}
+function voiceNoteButtonHTML(hole, i){
+  if(VoiceNote.active && VoiceNote.hole===hole && VoiceNote.shotIdx===i){
+    var interimHTML = VoiceNote.interim ? "<div class='voicenote interim'>"+escapeHtml(VoiceNote.interim)+"&hellip;</div>" : "";
+    return "<button class='micbtn recording' onclick='App.stopVoiceNote()'>⏺ Écoute&hellip; (touche pour arrêter)</button>"+interimHTML;
+  }
+  return "<button class='micbtn' onclick='App.startVoiceNote("+hole+","+i+")'>🎤</button>";
+}
+
 var ROUND = loadRound();
 if(ROUND.course && !COURSES[ROUND.course]) ROUND.course = null;
 var hasAnyShots = Object.keys(ROUND.holes).some(function(k){ return ROUND.holes[k].shots.length>0 || ROUND.holes[k].onGreen; });
@@ -373,6 +453,10 @@ var App = {
   },
   reopenSetup:function(){
     ROUND.setupConfirmed = false;
+    saveRound(); render();
+  },
+  clearSetupChoice:function(){
+    ROUND.course = null; ROUND.tee = null;
     saveRound(); render();
   },
   startEditDist:function(){ UI.editingStart=true; UI.digits=""; UI.touched=false; UI.gpsFilled=false; render(); },
@@ -481,6 +565,8 @@ var App = {
   },
   toggleExport:function(){ UI.showExport = !UI.showExport; render(); },
   retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
+  startVoiceNote:function(hole, idx){ startVoiceNote(hole, idx); },
+  stopVoiceNote:function(){ stopVoiceNote(); },
   copyExport:function(){
     var ta = document.getElementById("export-text");
     ta.select();
@@ -517,10 +603,12 @@ function autoScore(hd){
 function shotListHTML(hd){
   var confirmed = hd.shots.map(function(s,i){
     var dist = s.before - s.after;
+    var mic = voiceNoteButtonHTML(ROUND.cur, i);
+    var noteLine = s.note ? "<div class='voicenote'>🎤 "+escapeHtml(s.note)+"</div>" : "";
     if(s.after===0){
-      return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, vous êtes sur le vert</div>";
+      return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, vous êtes sur le vert "+mic+"</div>"+noteLine;
     }
-    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+s.after+"v</b></div>";
+    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+s.after+"v</b> "+mic+"</div>"+noteLine;
   }).join("");
   var pending = "";
   if(!hd.onGreen && UI.locked){
@@ -603,20 +691,24 @@ function render(){
   html += "</div>";
 
   if(!ROUND.setupConfirmed){
-    html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez l'endroit de jeu et vos départs</div>";
-    html += "<div class='teerow'>";
-    Object.keys(COURSES).forEach(function(c){
-      html += "<button class='teebtn"+(ROUND.course===c?" sel":"")+"' onclick='App.setCourse(\""+c+"\")'>"+c+"</button>";
-    });
-    html += "</div>";
-    html += "<div class='teerow'>";
-    html += "<button class='teebtn blanc"+(ROUND.tee==="blanc"?" sel":"")+"' onclick='App.setTee(\"blanc\")'>Départ Blanc</button>";
-    html += "<button class='teebtn rouge"+(ROUND.tee==="rouge"?" sel":"")+"' onclick='App.setTee(\"rouge\")'>Départ Rouge</button>";
-    html += "</div>";
-    if(ROUND.course && ROUND.tee){
+    if(!(ROUND.course && ROUND.tee)){
+      html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez l'endroit de jeu et vos départs</div>";
+      html += "<div class='teerow'>";
+      Object.keys(COURSES).forEach(function(c){
+        html += "<button class='teebtn"+(ROUND.course===c?" sel":"")+"' onclick='App.setCourse(\""+c+"\")'>"+c+"</button>";
+      });
+      html += "</div>";
+      html += "<div class='teerow'>";
+      html += "<button class='teebtn blanc"+(ROUND.tee==="blanc"?" sel":"")+"' onclick='App.setTee(\"blanc\")'>Départ Blanc</button>";
+      html += "<button class='teebtn rouge"+(ROUND.tee==="rouge"?" sel":"")+"' onclick='App.setTee(\"rouge\")'>Départ Rouge</button>";
+      html += "</div>";
+    } else {
       var teeLabel = ROUND.tee==="rouge" ? "Rouge" : "Blanc";
-      html += "<div class='lead' style='text-align:center'>Vous avez choisi de jouer au golf de <b style='color:var(--accent)'>"+ROUND.course+"</b> et de démarrer sur le départ des <b style='color:var(--accent)'>"+teeLabel+"</b>.</div>";
+      html += "<div class='card confirm-flash' style='text-align:center;gap:11px'>";
+      html += "<div style='font-size:1.2rem;font-weight:900'>Vous avez choisi de jouer au golf de <span style='color:var(--accent)'>"+ROUND.course+"</span> et de démarrer sur le départ des <span style='color:var(--accent)'>"+teeLabel+"</span>.</div>";
       html += "<button class='okbtn' onclick='App.confirmSetup()'>&#9989; Je confirme</button>";
+      html += "<button class='linklike' onclick='App.clearSetupChoice()'>changer</button>";
+      html += "</div>";
     }
     if(ROUND.course && PIN_SEED[ROUND.course]){
       html += "<button class='linklike' style='display:block;margin:4px auto 0' onclick='App.resetCoursePins()'>🔄 Réinitialiser les repères GPS de "+ROUND.course+"</button>";
@@ -807,6 +899,7 @@ function exportText(){
     h.shots.forEach(function(s,i){
       var dist = s.before-s.after;
       lines.push("  C"+(i+1)+" "+s.club+" : "+dist+"v (reste "+s.after+"v)");
+      if(s.note) lines.push("    Note : "+s.note);
     });
     var puttVals = [];
     for(var i=0;i<4;i++){ if(h.putts[i]===null) break; puttVals.push(h.putts[i]); }

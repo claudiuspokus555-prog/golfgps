@@ -817,7 +817,7 @@ function render(){
     } else if(UI.pendingSpot){
       var ps = UI.pendingSpot;
       var psPlace = ps.spot==="Trappe de sable" ? "la trappe de sable" : "la frise du vert";
-      if(ps.feet===null){
+      if(ps.mode==="feet"){
         html += "<div class='lead' style='text-align:center'>Vous êtes sur "+psPlace+" — à combien de pieds êtes-vous du trou ? <button class='linklike' onclick='App.cancelPendingSpot()'>annuler</button></div>";
         html += keypadHTML("");
         html += "<button class='okbtn'"+(!UI.touched?" disabled":"")+" onclick='App.pendingSpotFeetNext()'>&#9989; Suivant</button>";

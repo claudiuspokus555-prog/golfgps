@@ -79,9 +79,9 @@
   .scoregrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-bottom:4px; }
   .sc-cell{ border-radius:8px; overflow:hidden; text-align:center; }
   .sc-cell.sc-total .sc-head{ background:var(--text); }
-  .sc-head{ background:var(--accent); color:#fff; padding:5px 1px 3px; }
-  .sc-hole{ font-size:1.15rem; font-weight:900; line-height:1.1; }
-  .sc-par{ font-size:.78rem; font-weight:800; opacity:.9; }
+  .sc-head{ background:var(--accent); color:#fff; padding:4px 1px; display:flex; align-items:baseline; justify-content:center; gap:3px; white-space:nowrap; }
+  .sc-hole{ font-size:1.05rem; font-weight:900; line-height:1; }
+  .sc-par{ font-size:.66rem; font-weight:800; opacity:.9; line-height:1; }
   .sc-body{ background:var(--bg); border:1.5px solid var(--border); border-top:none; padding:6px 1px; }
   .sc-score{ font-size:1.5rem; font-weight:900; color:var(--text); min-width:1.7em; display:inline-block; border-radius:6px; padding:1px 0; }
   .sc-score.birdie{ background:#2D7DD2; color:#fff; }
@@ -836,7 +836,7 @@ function scoreCellHTML(headLabel, subLabel, par, sc, isTotal){
     else if(sc === par) scoreClass += " par";
   }
   return "<div class='sc-cell"+(isTotal?" sc-total":"")+"'>" +
-    "<div class='sc-head'><div class='sc-hole'>"+headLabel+"</div><div class='sc-par'>"+subLabel+"</div></div>" +
+    "<div class='sc-head'><span class='sc-hole'>"+headLabel+"</span><span class='sc-par'>Par "+subLabel+"</span></div>" +
     "<div class='sc-body'><span class='"+scoreClass+"'>"+(sc!==null?sc:"&ndash;")+"</span></div>" +
   "</div>";
 }

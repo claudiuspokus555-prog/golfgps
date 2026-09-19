@@ -60,6 +60,9 @@
   .greenbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--accent); color:var(--accent); border-radius:10px; padding:10px 2px; font-weight:800; font-size:.95rem; }
   .greenbtn:active{ background:var(--accent); color:var(--accent-text); }
   .greenbtn[disabled]{ opacity:.35; pointer-events:none; }
+  .spotbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--amber); color:var(--amber); border-radius:10px; padding:8px 2px; font-weight:800; font-size:.88rem; }
+  .spotbtn:active{ background:var(--amber); color:#fff; }
+  .spotbtn[disabled]{ opacity:.35; pointer-events:none; }
   .okbtn{ width:100%; background:var(--accent); color:var(--accent-text); border:none; border-radius:12px; padding:13px; font-weight:900; font-size:1.1rem; }
   .okbtn[disabled]{ opacity:.4; pointer-events:none; }
 
@@ -513,14 +516,16 @@ var App = {
     if(!UI.touched || UI.gpsFilled){ UI.digits=""; UI.touched=true; UI.gpsFilled=false; render(); return; }
     UI.digits = UI.digits.slice(0,-1); render();
   },
-  confirmShot:function(after){
+  confirmShot:function(after, spot){
     var hd = getHole(ROUND.cur);
     var club = UI.locked || UI.pendingClub || defaultClubFor(hd);
     if(!club) return;
     var before = beforeDist(hd);
     var shown = UI.touched ? UI.digits : "";
     var val = (after!==undefined) ? after : (shown===""?0:parseInt(shown,10));
-    hd.shots.push({ club:club, before:before, after:val });
+    var shot = { club:club, before:before, after:val };
+    if(spot) shot.spot = spot;
+    hd.shots.push(shot);
     UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false;
     if(val===0){ hd.onGreen = true; UI.puttTarget=null; autoCapturePinIfPossible(); }
     saveRound(); render();
@@ -623,10 +628,11 @@ function shotListHTML(hd){
     var dist = s.before - s.after;
     var mic = voiceNoteButtonHTML(ROUND.cur, i);
     var noteLine = s.note ? "<div class='voicenote'>🎤 "+escapeHtml(s.note)+"</div>" : "";
+    var spotTag = s.spot ? " <b style='color:var(--amber)'>&mdash; "+escapeHtml(s.spot)+"</b>" : "";
     if(s.after===0){
-      return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, vous êtes sur le vert "+mic+"</div>"+noteLine;
+      return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, vous êtes sur le vert"+spotTag+" "+mic+"</div>"+noteLine;
     }
-    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+s.after+"v</b> "+mic+"</div>"+noteLine;
+    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+s.after+"v</b>"+spotTag+" "+mic+"</div>"+noteLine;
   }).join("");
   var pending = "";
   if(!hd.onGreen && UI.locked){
@@ -773,6 +779,10 @@ function render(){
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>, vous êtes à quelle distance du vert ? <button class='linklike' onclick='App.cancelLock()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
+      html += "<div style='display:flex;gap:8px'>";
+      html += "<button class='spotbtn'"+(!UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.confirmShot(undefined,'Frise du vert')\">&#127793; Frise</button>";
+      html += "<button class='spotbtn'"+(!UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.confirmShot(undefined,'Trappe de sable')\">&#127958; Sable</button>";
+      html += "</div>";
       html += "<div style='display:flex;gap:8px'>";
       html += "<button class='greenbtn' style='flex:1' onclick='App.confirmShot(0)'>&#9971; Vert</button>";
       html += "<button class='okbtn' style='flex:2'"+(!UI.touched?" disabled":"")+" onclick='App.confirmShot()'>&#9989; OK</button>";
@@ -932,7 +942,8 @@ function exportText(){
     lines.push("Trou "+n+" (Par "+h.par+") — Score "+sc);
     h.shots.forEach(function(s,i){
       var dist = s.before-s.after;
-      lines.push("  C"+(i+1)+" "+s.club+" : "+dist+"v (reste "+s.after+"v)");
+      var spotSuffix = s.spot ? " — "+s.spot : "";
+      lines.push("  C"+(i+1)+" "+s.club+" : "+dist+"v (reste "+s.after+"v)"+spotSuffix);
       if(s.note) lines.push("    Note : "+s.note);
     });
     var puttVals = [];

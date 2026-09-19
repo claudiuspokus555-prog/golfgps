@@ -815,8 +815,15 @@ function render(){
   html += "<button class='btn-ghost' style='flex:1' onclick='App.askResetRound()'>&#128465; Effacer la ronde</button>";
   html += "</div>";
   if(UI.showSummary){
+    var boisCount=0, ferCount=0;
+    Object.keys(ROUND.holes).forEach(function(n){
+      ROUND.holes[n].shots.forEach(function(s){
+        if(s.club.indexOf("Bois")===0) boisCount++;
+        else if(s.club.indexOf("Fer")===0) ferCount++;
+      });
+    });
     html += "<div class='card'>";
-    html += "<h2>Résumé par bâton (jusqu'ici)</h2>";
+    html += "<h2 style='font-size:.75rem;display:flex;align-items:baseline;gap:6px;white-space:nowrap'>Résumé par bâton (jusqu'ici) <span style='font-size:.7rem;opacity:.85;text-transform:none;letter-spacing:0'>&mdash; "+boisCount+" Bois, "+ferCount+" Fer</span></h2>";
     html += summaryHTML();
     html += "</div>";
   }

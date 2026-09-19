@@ -13,6 +13,7 @@
     font-size:17px;
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
   html, body{ background:var(--bg); }
   button{ -webkit-user-select:none; user-select:none; touch-action:manipulation; font-family:inherit; }
   body{ margin:0; color:var(--text); font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; font-size:1rem; }
@@ -567,6 +568,22 @@ var App = {
   retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
   startVoiceNote:function(hole, idx){ startVoiceNote(hole, idx); },
   stopVoiceNote:function(){ stopVoiceNote(); },
+  toggleFullscreen:function(){
+    var el = document.documentElement;
+    var isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if(!isFS){
+      var req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if(req){
+        var p = req.call(el);
+        if(p && p.catch) p.catch(function(){ alert("Le plein écran n'a pas pu être activé sur cet appareil."); });
+      } else {
+        alert("Le plein écran n'est pas supporté par ce navigateur.");
+      }
+    } else {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if(exit) exit.call(document);
+    }
+  },
   copyExport:function(){
     var ta = document.getElementById("export-text");
     ta.select();
@@ -683,6 +700,11 @@ function gpsStatusHTML(hd){
 function render(){
   var hd = getHole(ROUND.cur);
   var html = "";
+
+  var isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  html += "<div style='display:flex;justify-content:flex-end'>";
+  html += "<button class='btn-ghost btn-sm2' style='width:auto;padding:4px 10px' onclick='App.toggleFullscreen()'>"+(isFS?"&#8601; Quitter le plein écran":"&#10021; Plein écran")+"</button>";
+  html += "</div>";
 
   html += "<div class='holebar'>";
   html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur-1)+")'"+(ROUND.cur<=1?" disabled":"")+">&#9664;</button>";
@@ -936,6 +958,9 @@ function exportText(){
   });
   return lines.join("\n");
 }
+
+document.addEventListener("fullscreenchange", render);
+document.addEventListener("webkitfullscreenchange", render);
 
 render();
 startGPSWatch();

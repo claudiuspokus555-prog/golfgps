@@ -402,7 +402,7 @@ if(!hasAnyShots){
 } else if(ROUND.setupConfirmed === undefined){
   ROUND.setupConfirmed = true;
 }
-var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:false, confirmingReset:false, editingStart:false };
+var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:false, confirmingReset:false, editingStart:false, pendingSpot:null };
 
 function loadRound(){
   try{
@@ -515,6 +515,37 @@ var App = {
   back:function(){
     if(!UI.touched || UI.gpsFilled){ UI.digits=""; UI.touched=true; UI.gpsFilled=false; render(); return; }
     UI.digits = UI.digits.slice(0,-1); render();
+  },
+  spotShot:function(spot){
+    var hd = getHole(ROUND.cur);
+    var before = beforeDist(hd);
+    if(before < 50){
+      UI.pendingSpot = { spot:spot, feet:null };
+      UI.digits=""; UI.touched=false;
+      render();
+      return;
+    }
+    this.confirmShot(undefined, spot);
+  },
+  cancelPendingSpot:function(){
+    UI.pendingSpot = null; UI.digits=""; UI.touched=false; render();
+  },
+  pendingSpotFeetNext:function(){
+    if(!UI.touched) return;
+    UI.pendingSpot.feet = UI.digits===""?0:parseInt(UI.digits,10);
+    UI.digits=""; UI.touched=false;
+    render();
+  },
+  pendingSpotClubChosen:function(c){
+    var ps = UI.pendingSpot;
+    var verges = Math.round(ps.feet/3);
+    this.confirmShot(verges, ps.spot);
+    UI.pendingSpot = null;
+    UI.locked = c;
+    var hd = getHole(ROUND.cur);
+    if(hd.shots.length===0 && !hd.teeGPS && GPS.lastFix){ hd.teeGPS = GPS.lastFix; saveRound(); }
+    render();
+    updateSuggestion();
   },
   confirmShot:function(after, spot){
     var hd = getHole(ROUND.cur);
@@ -775,13 +806,29 @@ function render(){
       html += "<button class='shotbtn' style='flex:2'"+(!effective?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
       html += "<button class='greenbtn' style='flex:1' onclick='App.markOnGreen()'>&#9971; Vert</button>";
       html += "</div>";
+    } else if(UI.pendingSpot){
+      var ps = UI.pendingSpot;
+      var psPlace = ps.spot==="Trappe de sable" ? "la trappe de sable" : "la frise du vert";
+      if(ps.feet===null){
+        html += "<div class='lead' style='text-align:center'>Vous êtes sur "+psPlace+" — à combien de pieds êtes-vous du trou ? <button class='linklike' onclick='App.cancelPendingSpot()'>annuler</button></div>";
+        html += keypadHTML("");
+        html += "<button class='okbtn'"+(!UI.touched?" disabled":"")+" onclick='App.pendingSpotFeetNext()'>&#9989; Suivant</button>";
+      } else {
+        html += "<div class='lead' style='text-align:center'>Avec quel bâton allez-vous frapper la balle depuis "+psPlace+" ? <button class='linklike' onclick='App.cancelPendingSpot()'>annuler</button></div>";
+        html += "<div class='clubgrid'>";
+        CLUBS.forEach(function(c){
+          html += "<button class='clubbtn' onclick='App.pendingSpotClubChosen(\""+c+"\")'>"+clubLabel(c)+"</button>";
+        });
+        html += "</div>";
+      }
     } else {
+      var closeRange = before < 50;
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>, vous êtes à quelle distance du vert ? <button class='linklike' onclick='App.cancelLock()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
       html += "<div style='display:flex;gap:8px'>";
-      html += "<button class='spotbtn'"+(!UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.confirmShot(undefined,'Frise du vert')\">&#127793; Frise</button>";
-      html += "<button class='spotbtn'"+(!UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.confirmShot(undefined,'Trappe de sable')\">&#127958; Sable</button>";
+      html += "<button class='spotbtn'"+(!closeRange && !UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.spotShot('Frise du vert')\">&#127793; Frise</button>";
+      html += "<button class='spotbtn'"+(!closeRange && !UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.spotShot('Trappe de sable')\">&#127958; Sable</button>";
       html += "</div>";
       html += "<div style='display:flex;gap:8px'>";
       html += "<button class='greenbtn' style='flex:1' onclick='App.confirmShot(0)'>&#9971; Vert</button>";

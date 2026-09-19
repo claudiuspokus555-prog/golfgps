@@ -787,17 +787,27 @@ function render(){
     html += "</div>";
   }
 
+  if(hd.shots.length>0 || hd.onGreen){
+    html += "<button class='btn-ghost btn-sm2' onclick='App.undoLastShot()'>&#8630; Annuler le dernier coup</button>";
+  }
+
+  html += scoreTableHTML();
+
   html += "<div style='display:flex;gap:8px'>";
   html += "<button class='btn-ghost redtext' style='flex:1' onclick='App.toggleExport()'>&#128228; "+(UI.showExport?"Cacher":"Fin / Exporter")+"</button>";
   html += "<button class='btn-ghost' style='flex:1' onclick='App.askResetRound()'>&#128465; Effacer la ronde</button>";
   html += "</div>";
   if(UI.showExport){
     var txt = exportText();
+    var subj = encodeURIComponent("Calcul de Drive - ronde");
+    var body = encodeURIComponent(txt);
+    var toAddr = "claudiuspokus555@gmail.com";
     html += "<div class='card'>";
     html += "<h2>Résumé à copier</h2>";
     html += "<textarea id='export-text' readonly onclick='this.select()' style='width:100%;min-height:220px;font-family:monospace;font-size:.85rem;padding:8px;border-radius:10px;border:1.75px solid var(--border);background:var(--bg);color:var(--text);'>"+txt.replace(/&/g,"&amp;").replace(/</g,"&lt;")+"</textarea>";
     html += "<button class='btn-ghost' onclick='App.copyExport()'>&#128203; Copier le texte</button>";
-    html += "<a class='btn-ghost' style='display:block;text-align:center;text-decoration:none' href='mailto:claudiuspokus555@gmail.com?subject="+encodeURIComponent("Calcul de Drive - ronde")+"&body="+encodeURIComponent(txt)+"'>&#9993; Envoyer par courriel</a>";
+    html += "<a class='btn-ghost' style='display:block;text-align:center;text-decoration:none' href='googlegmail://co?to="+toAddr+"&subject="+subj+"&body="+body+"'>&#9993; Envoyer par Gmail</a>";
+    html += "<a class='linklike' style='display:block;text-align:center;margin-top:4px' href='mailto:"+toAddr+"?subject="+subj+"&body="+body+"'>ou utiliser l'appli courriel par défaut</a>";
     html += "</div>";
   }
 
@@ -808,12 +818,6 @@ function render(){
     html += "<button class='shotbtn' style='flex:1' onclick='App.resetRound()'>&#128465; Oui, effacer</button>";
     html += "</div></div>";
   }
-
-  if(hd.shots.length>0 || hd.onGreen){
-    html += "<button class='btn-ghost btn-sm2' onclick='App.undoLastShot()'>&#8630; Annuler le dernier coup</button>";
-  }
-
-  html += scoreTableHTML();
 
   document.getElementById("app").innerHTML = html;
 }

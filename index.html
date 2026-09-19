@@ -399,7 +399,7 @@ if(!hasAnyShots){
 } else if(ROUND.setupConfirmed === undefined){
   ROUND.setupConfirmed = true;
 }
-var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, confirmingReset:false, editingStart:false };
+var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:false, confirmingReset:false, editingStart:false };
 
 function loadRound(){
   try{
@@ -565,6 +565,7 @@ var App = {
     saveRound(); render();
   },
   toggleExport:function(){ UI.showExport = !UI.showExport; render(); },
+  toggleSummary:function(){ UI.showSummary = !UI.showSummary; render(); },
   retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
   startVoiceNote:function(hole, idx){ startVoiceNote(hole, idx); },
   stopVoiceNote:function(){ stopVoiceNote(); },
@@ -802,13 +803,6 @@ function render(){
     html += "</div>";
   }
 
-  if(ROUND.cur===18 && hd.score!==null){
-    html += "<div class='card'>";
-    html += "<h2>Résumé par bâton (fin de ronde)</h2>";
-    html += summaryHTML();
-    html += "</div>";
-  }
-
   if(hd.shots.length>0 || hd.onGreen){
     html += "<button class='btn-ghost btn-sm2' onclick='App.undoLastShot()'>&#8630; Annuler le dernier coup</button>";
   }
@@ -817,8 +811,15 @@ function render(){
 
   html += "<div style='display:flex;gap:8px'>";
   html += "<button class='btn-ghost redtext' style='flex:1' onclick='App.toggleExport()'>&#128228; "+(UI.showExport?"Cacher":"Fin / Exporter")+"</button>";
+  html += "<button class='btn-ghost' style='flex:1' onclick='App.toggleSummary()'>&#128202; "+(UI.showSummary?"Cacher":"Résumé")+"</button>";
   html += "<button class='btn-ghost' style='flex:1' onclick='App.askResetRound()'>&#128465; Effacer la ronde</button>";
   html += "</div>";
+  if(UI.showSummary){
+    html += "<div class='card'>";
+    html += "<h2>Résumé par bâton (jusqu'ici)</h2>";
+    html += summaryHTML();
+    html += "</div>";
+  }
   if(UI.showExport){
     var txt = exportText();
     var subj = encodeURIComponent("Calcul de Drive - ronde");

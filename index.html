@@ -39,6 +39,7 @@
   .distbox .dlabel{ font-size:.78rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; }
   .distbox .dnum{ font-size:1.4rem; font-weight:900; color:var(--danger); line-height:1; }
   .distbox .dunit{ font-size:.8rem; font-weight:800; color:var(--danger); margin-left:2px; }
+  .dfeet{ font-size:.85rem; font-weight:800; color:var(--text-muted); }
 
   .clubline{ display:flex; align-items:center; gap:8px; font-size:1.02rem; font-weight:800; }
   .clubline b{ color:var(--accent); font-size:1.15rem; }
@@ -663,11 +664,13 @@ function shotListHTML(hd){
     var mic = voiceNoteButtonHTML(ROUND.cur, i);
     var noteLine = s.note ? "<div class='voicenote'>🎤 "+escapeHtml(s.note)+"</div>" : "";
     var spotTag = s.spot ? " <b style='color:var(--amber)'>&mdash; "+escapeHtml(s.spot)+"</b>" : "";
-    var resteTxt = s.after+"v"+(s.origFeet!=null ? " ("+s.origFeet+" pieds)" : "");
+    var isPutter = s.club === "Putter";
+    var distTxt = isPutter ? Math.round(dist*3)+" pieds" : dist+"v";
+    var resteTxt = isPutter ? Math.round(s.after*3)+" pieds" : s.after+"v"+(s.origFeet!=null ? " ("+s.origFeet+" pieds)" : "");
     if(s.after===0){
-      return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, vous êtes sur le vert"+spotTag+" "+mic+"</div>"+noteLine;
+      return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+distTxt+"</b>, vous êtes sur le vert"+spotTag+" "+mic+"</div>"+noteLine;
     }
-    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+resteTxt+"</b>"+spotTag+" "+mic+"</div>"+noteLine;
+    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+distTxt+"</b>, reste <b>"+resteTxt+"</b>"+spotTag+" "+mic+"</div>"+noteLine;
   }).join("");
   var pending = "";
   if(!hd.onGreen && UI.locked){
@@ -794,7 +797,9 @@ function render(){
     html += "<div class='card'>";
     var distLabel = hd.shots.length===0 ? "Distance de ce trou" : "Distance restante";
     var canEditStart = hd.shots.length===0;
-    html += "<div class='distbox'"+(canEditStart?" ondblclick='App.startEditDist()'":"")+"><span class='dlabel'>"+distLabel+" :</span> <span class='dnum'>"+before+"<span class='dunit'>v</span></span>"+(canEditStart?" <button class='linklike' onclick='App.startEditDist()'>modifier</button>":"")+"</div>";
+    var lastShotForFeet = hd.shots[hd.shots.length-1];
+    var feetNote = (lastShotForFeet && lastShotForFeet.origFeet!=null) ? " <span class='dfeet'>("+lastShotForFeet.origFeet+" pieds)</span>" : "";
+    html += "<div class='distbox'"+(canEditStart?" ondblclick='App.startEditDist()'":"")+"><span class='dlabel'>"+distLabel+" :</span> <span class='dnum'>"+before+"<span class='dunit'>v</span></span>"+feetNote+(canEditStart?" <button class='linklike' onclick='App.startEditDist()'>modifier</button>":"")+"</div>";
 
     if(canEditStart && UI.editingStart){
       html += "<div class='lead' style='text-align:center'>Corriger la distance de départ (verges)</div>";
@@ -963,7 +968,8 @@ function summaryHTML(){
   return clubs.map(function(c){
     var avg = Math.round(agg[c].sum/agg[c].n);
     var pct = maxAvg>0 ? Math.round(avg/maxAvg*100) : 0;
-    return "<div class='summarybar'><div class='name'>"+c+"</div><div class='track'><div class='fill' style='width:"+pct+"%'></div></div><div class='val'>"+avg+"v</div></div>";
+    var label = (c==="Putter") ? Math.round(avg*3)+"pi" : avg+"v";
+    return "<div class='summarybar'><div class='name'>"+c+"</div><div class='track'><div class='fill' style='width:"+pct+"%'></div></div><div class='val'>"+label+"</div></div>";
   }).join("");
 }
 
@@ -984,8 +990,10 @@ function exportText(){
     h.shots.forEach(function(s,i){
       var dist = s.before-s.after;
       var spotSuffix = s.spot ? " — "+s.spot : "";
-      var resteTxt = s.after+"v"+(s.origFeet!=null ? " / "+s.origFeet+" pieds" : "");
-      lines.push("  C"+(i+1)+" "+s.club+" : "+dist+"v (reste "+resteTxt+")"+spotSuffix);
+      var isPutter = s.club === "Putter";
+      var distTxt = isPutter ? Math.round(dist*3)+" pieds" : dist+"v";
+      var resteTxt = isPutter ? Math.round(s.after*3)+" pieds" : s.after+"v"+(s.origFeet!=null ? " / "+s.origFeet+" pieds" : "");
+      lines.push("  C"+(i+1)+" "+s.club+" : "+distTxt+" (reste "+resteTxt+")"+spotSuffix);
       if(s.note) lines.push("    Note : "+s.note);
     });
     var puttVals = [];

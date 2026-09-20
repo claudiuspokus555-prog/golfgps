@@ -566,6 +566,13 @@ var App = {
   },
   undoLastShot:function(){
     var hd = getHole(ROUND.cur);
+    if(UI.locked || UI.pendingSpot){
+      // Un coup est verrouillé/en cours mais pas encore confirmé — on annule seulement ça,
+      // sans toucher aux coups déjà confirmés dans hd.shots.
+      UI.pendingClub=null; UI.locked=null; UI.pendingSpot=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.puttTarget=null;
+      render();
+      return;
+    }
     if(hd.shots.length>0){
       hd.shots.pop();
       hd.onGreen = false;

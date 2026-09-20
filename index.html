@@ -58,6 +58,8 @@
   .keybtn{ background:var(--bg); border:1.75px solid var(--border); border-radius:9px; padding:11px 1px; font-size:1.05rem; font-weight:900; color:var(--text); }
   .keybtn:active{ background:var(--border); }
   .keybtn.wide{ grid-column:span 1; }
+  .keybtn-back{ background:var(--danger); border-color:var(--danger); color:#fff; font-size:1.5rem; padding:9px 1px; }
+  .keybtn-back:active{ background:#7a2312; }
   .greenbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--accent); color:var(--accent); border-radius:10px; padding:10px 2px; font-weight:800; font-size:.95rem; }
   .greenbtn:active{ background:var(--accent); color:var(--accent-text); }
   .greenbtn[disabled]{ opacity:.35; pointer-events:none; }
@@ -494,6 +496,7 @@ var App = {
   },
   pickClub:function(c){ UI.pendingClub = c; render(); },
   lockShot:function(){
+    if(!ROUND.setupConfirmed) return;
     var hd = getHole(ROUND.cur);
     var club = UI.pendingClub || defaultClubFor(hd);
     if(!club) return;
@@ -516,8 +519,9 @@ var App = {
     if(!UI.touched) return;
     var typed = UI.digits===""?0:parseInt(UI.digits,10);
     var isNearGreenType = (UI.spotForShot==="Frise du vert" || UI.spotForShot==="Trappe de sable");
-    var verges = (isNearGreenType && typed<50) ? Math.round(typed/3) : typed;
-    this.confirmShot(verges, UI.spotForShot);
+    var useFeet = isNearGreenType && typed<50;
+    var verges = useFeet ? Math.round(typed/3) : typed;
+    this.confirmShot(verges, UI.spotForShot, useFeet ? typed : null);
   },
   recalibratePin:function(){
     if(!GPS.lastFix) return;
@@ -539,7 +543,7 @@ var App = {
     if(!UI.touched || UI.gpsFilled){ UI.digits=""; UI.touched=true; UI.gpsFilled=false; render(); return; }
     UI.digits = UI.digits.slice(0,-1); render();
   },
-  confirmShot:function(after, spot){
+  confirmShot:function(after, spot, origFeet){
     var hd = getHole(ROUND.cur);
     var club = UI.locked || UI.pendingClub || defaultClubFor(hd);
     if(!club) return;
@@ -548,6 +552,7 @@ var App = {
     var val = (after!==undefined) ? after : (shown===""?0:parseInt(shown,10));
     var shot = { club:club, before:before, after:val };
     if(spot) shot.spot = spot;
+    if(origFeet!=null) shot.origFeet = origFeet;
     hd.shots.push(shot);
     UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null;
     if(val===0){ hd.onGreen = true; UI.puttTarget=null; autoCapturePinIfPossible(); }
@@ -659,10 +664,11 @@ function shotListHTML(hd){
     var mic = voiceNoteButtonHTML(ROUND.cur, i);
     var noteLine = s.note ? "<div class='voicenote'>🎤 "+escapeHtml(s.note)+"</div>" : "";
     var spotTag = s.spot ? " <b style='color:var(--amber)'>&mdash; "+escapeHtml(s.spot)+"</b>" : "";
+    var resteTxt = s.after+"v"+(s.origFeet!=null ? " ("+s.origFeet+" pieds)" : "");
     if(s.after===0){
       return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, vous êtes sur le vert"+spotTag+" "+mic+"</div>"+noteLine;
     }
-    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+s.after+"v</b>"+spotTag+" "+mic+"</div>"+noteLine;
+    return "<div><b>C"+(i+1)+" "+s.club+"</b> — Frappe de <b>"+dist+"v</b>, reste <b>"+resteTxt+"</b>"+spotTag+" "+mic+"</div>"+noteLine;
   }).join("");
   var pending = "";
   if(!hd.onGreen && UI.locked){
@@ -708,8 +714,8 @@ function keypadHTML(defaultVal){
   [1,2,3,4,5,6,7,8,9].forEach(function(d){
     html += "<button class='keybtn' onclick='App.key(\""+d+"\")'>"+d+"</button>";
   });
-  html += "<button class='keybtn' onclick='App.back()'>&larr;</button>";
   html += "<button class='keybtn' onclick='App.key(\"0\")'>0</button>";
+  html += "<button class='keybtn keybtn-back' onclick='App.back()'>&larr;</button>";
   html += "</div>";
   return html;
 }
@@ -801,7 +807,10 @@ function render(){
         html += "<button class='clubbtn"+(effective===c?" sel":"")+"' onclick='App.pickClub(\""+c+"\")'>"+clubLabel(c)+"</button>";
       });
       html += "</div>";
-      html += "<button class='shotbtn'"+(!effective?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
+      html += "<button class='shotbtn'"+(!effective || !ROUND.setupConfirmed?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
+      if(!ROUND.setupConfirmed){
+        html += "<div class='lead' style='text-align:center;color:var(--danger);font-weight:800'>Choisis d'abord le terrain et le départ ci-dessus</div>";
+      }
     } else if(UI.awaitingSpot){
       html += "<div class='lead' style='text-align:center'>Où est tombée votre balle ? <button class='linklike' onclick='App.cancelLock()'>changer de bâton</button></div>";
       html += "<div class='spotgrid'>";
@@ -975,7 +984,8 @@ function exportText(){
     h.shots.forEach(function(s,i){
       var dist = s.before-s.after;
       var spotSuffix = s.spot ? " — "+s.spot : "";
-      lines.push("  C"+(i+1)+" "+s.club+" : "+dist+"v (reste "+s.after+"v)"+spotSuffix);
+      var resteTxt = s.after+"v"+(s.origFeet!=null ? " / "+s.origFeet+" pieds" : "");
+      lines.push("  C"+(i+1)+" "+s.club+" : "+dist+"v (reste "+resteTxt+")"+spotSuffix);
       if(s.note) lines.push("    Note : "+s.note);
     });
     var puttVals = [];

@@ -58,7 +58,7 @@
   .keybtn{ background:var(--bg); border:1.75px solid var(--border); border-radius:9px; padding:11px 1px; font-size:1.05rem; font-weight:900; color:var(--text); }
   .keybtn:active{ background:var(--border); }
   .keybtn.wide{ grid-column:span 1; }
-  .keybtn-back{ background:var(--danger); border-color:var(--danger); color:#fff; font-size:1.5rem; padding:9px 1px; }
+  .keybtn-back{ background:var(--danger); border-color:var(--danger); color:#fff; font-size:1.5rem; padding:9px 1px; grid-column:span 2; }
   .keybtn-back:active{ background:#7a2312; }
   .greenbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--accent); color:var(--accent); border-radius:10px; padding:10px 2px; font-weight:800; font-size:.95rem; }
   .greenbtn:active{ background:var(--accent); color:var(--accent-text); }
@@ -700,7 +700,7 @@ function puttsListHTML(hd){
 function shotsCardHTML(hd){
   var sc = hd.score!==null ? hd.score : autoScore(hd);
   var header = "<div style='display:flex;align-items:baseline;gap:7px'>" +
-    "<input class='scoreinput' style='width:42px;font-size:1.15rem;padding:3px' type='number' inputmode='numeric' value='"+(sc!==null?sc:"")+"' onchange='App.setScore(this.value)'>" +
+    "<input class='scoreinput' style='width:42px;height:42px;line-height:42px;font-size:1.15rem;padding:0;text-align:center' type='number' inputmode='numeric' value='"+(sc!==null?sc:"")+"' onchange='App.setScore(this.value)'>" +
     "<h2>coups joués sur ce trou</h2>" +
   "</div>";
   return "<div class='card'>"+header+"<div class='shotlist'>"+shotListHTML(hd)+puttsListHTML(hd)+"</div></div>";
@@ -749,15 +749,9 @@ function render(){
   html += "<button class='btn-ghost btn-sm2' style='width:auto;padding:4px 10px' onclick='App.toggleFullscreen()'>"+(isFS?"&#8601; Quitter le plein écran":"&#10021; Plein écran")+"</button>";
   html += "</div>";
 
-  html += "<div class='holebar'>";
-  html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur-1)+")'"+(ROUND.cur<=1?" disabled":"")+">&#9664;</button>";
-  html += "<div class='holebadge'><div class='prog'>Trou "+ROUND.cur+" / 18</div><div class='sub'>Par "+hd.par+" &middot; "+(ROUND.course||"&mdash;")+"</div></div>";
-  html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur+1)+")'"+(ROUND.cur>=18?" disabled":"")+">&#9654;</button>";
-  html += "</div>";
-
   if(!ROUND.setupConfirmed){
     if(!(ROUND.course && ROUND.tee)){
-      html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez l'endroit de jeu et vos départs</div>";
+      html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez votre terrain et votre départ (Rouge ou Blanc)</div>";
       html += "<div class='teerow'>";
       Object.keys(COURSES).forEach(function(c){
         html += "<button class='teebtn"+(ROUND.course===c?" sel":"")+"' onclick='App.setCourse(\""+c+"\")'>"+c+"</button>";
@@ -778,9 +772,17 @@ function render(){
     if(ROUND.course && PIN_SEED[ROUND.course]){
       html += "<button class='linklike' style='display:block;margin:4px auto 0' onclick='App.resetCoursePins()'>🔄 Réinitialiser les repères GPS de "+ROUND.course+"</button>";
     }
-  } else {
-    html += "<div class='lead' style='text-align:center'>Vous avez choisi <b style='color:var(--accent)'>"+ROUND.course+"</b> à partir de <b style='color:var(--accent)'>"+(ROUND.tee==="rouge"?"Rouge":"Blanc")+"</b> <button class='linklike' onclick='App.reopenSetup()'>changer</button></div>";
+    document.getElementById("app").innerHTML = html;
+    return;
   }
+
+  html += "<div class='holebar'>";
+  html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur-1)+")'"+(ROUND.cur<=1?" disabled":"")+">&#9664;</button>";
+  html += "<div class='holebadge'><div class='prog'>Trou "+ROUND.cur+" / 18</div><div class='sub'>Par "+hd.par+" &middot; "+(ROUND.course||"&mdash;")+"</div></div>";
+  html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur+1)+")'"+(ROUND.cur>=18?" disabled":"")+">&#9654;</button>";
+  html += "</div>";
+
+  html += "<div class='lead' style='text-align:center'>Vous avez choisi <b style='color:var(--accent)'>"+ROUND.course+"</b> à partir de <b style='color:var(--accent)'>"+(ROUND.tee==="rouge"?"Rouge":"Blanc")+"</b> <button class='linklike' onclick='App.reopenSetup()'>changer</button></div>";
 
   html += shotsCardHTML(hd);
 
@@ -807,10 +809,7 @@ function render(){
         html += "<button class='clubbtn"+(effective===c?" sel":"")+"' onclick='App.pickClub(\""+c+"\")'>"+clubLabel(c)+"</button>";
       });
       html += "</div>";
-      html += "<button class='shotbtn'"+(!effective || !ROUND.setupConfirmed?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
-      if(!ROUND.setupConfirmed){
-        html += "<div class='lead' style='text-align:center;color:var(--danger);font-weight:800'>Choisis d'abord le terrain et le départ ci-dessus</div>";
-      }
+      html += "<button class='shotbtn'"+(!effective?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
     } else if(UI.awaitingSpot){
       html += "<div class='lead' style='text-align:center'>Où est tombée votre balle ? <button class='linklike' onclick='App.cancelLock()'>changer de bâton</button></div>";
       html += "<div class='spotgrid'>";
@@ -821,7 +820,8 @@ function render(){
       html += "<button class='greenbtn' style='margin-top:8px' onclick='App.confirmShot(0)'>&#9971; Vert (sur le vert)</button>";
     } else {
       var spotPhrase = UI.spotForShot ? " depuis "+spotPlaceLabel(UI.spotForShot) : "";
-      html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle distance du vert ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
+      var targetWord = (UI.spotForShot === "Frise du vert") ? "trou" : "vert";
+      html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle distance du "+targetWord+" ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
       html += "<button class='okbtn'"+(!UI.touched?" disabled":"")+" onclick='App.confirmShotFromSpotScreen()'>&#9989; OK</button>";

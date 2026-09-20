@@ -648,12 +648,15 @@ function puttCount(hd){
   return hd.putts.filter(function(p){ return p!==null; }).length;
 }
 function autoScore(hd){
-  var n = hd.shots.length + puttCount(hd);
-  if(hd.onGreen && UI.touched && UI.digits!==""){
+  var n = hd.shots.length;
+  if(hd.onGreen){
     var t = puttTargetIndex(hd);
-    if(hd.putts[t]===null) n += 1;
-  }
-  if(!hd.onGreen && UI.locked){
+    for(var i=0;i<4;i++){
+      var v = hd.putts[i];
+      if(i===t && UI.touched && UI.digits!=="") v = UI.digits;
+      if(v!==null) n++;
+    }
+  } else if(UI.locked){
     n += 1; // le coup a été frappé (bâton verrouillé), juste pas encore mesuré
   }
   return n;
@@ -708,13 +711,18 @@ function shotsCardHTML(hd){
   return "<div class='card'>"+header+"<div class='shotlist'>"+shotListHTML(hd)+puttsListHTML(hd)+"</div></div>";
 }
 
-function keypadHTML(defaultVal){
+function keypadHTML(defaultVal, showDisplay){
+  if(showDisplay===undefined) showDisplay = true;
   var shown = UI.touched ? UI.digits : String(defaultVal===undefined?"":defaultVal);
   var html = "";
-  html += "<div style='display:flex;gap:6px;align-items:stretch'>";
-  html += "<div class='keydisplay' style='flex:3'>"+(shown===""?"&nbsp;":shown)+"</div>";
-  html += "<button class='clearbtn' style='flex:1' onclick='App.clearDigits()'>Effacer</button>";
-  html += "</div>";
+  if(showDisplay){
+    html += "<div style='display:flex;gap:6px;align-items:stretch'>";
+    html += "<div class='keydisplay' style='flex:3'>"+(shown===""?"&nbsp;":shown)+"</div>";
+    html += "<button class='clearbtn' style='flex:1' onclick='App.clearDigits()'>Effacer</button>";
+    html += "</div>";
+  } else {
+    html += "<button class='clearbtn' style='display:block;width:100%' onclick='App.clearDigits()'>Effacer</button>";
+  }
   html += "<div class='keypad'>";
   [1,2,3,4,5,6,7,8,9,0].forEach(function(d){
     html += "<button class='keybtn' onclick='App.key(\""+d+"\")'>"+d+"</button>";
@@ -851,7 +859,7 @@ function render(){
       html += "</button>";
     });
     html += "</div>";
-    html += keypadHTML();
+    html += keypadHTML(undefined, false);
     html += "<button class='okbtn' onclick='App.registerPutts()'>&#9989; Passer au trou suivant</button>";
     html += "</div>";
   }

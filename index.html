@@ -567,6 +567,7 @@ var App = {
     UI.puttTarget=null; UI.digits=""; UI.touched=false;
     if(ROUND.cur<18){ ROUND.cur++; UI.pendingClub=null; UI.locked=null; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null; }
     saveRound(); render();
+    window.scrollTo(0,0);
   },
   undoLastShot:function(){
     var hd = getHole(ROUND.cur);
@@ -877,7 +878,7 @@ function render(){
     });
     html += "</div>";
     html += keypadHTML(undefined, false);
-    html += "<button class='okbtn' onclick='App.registerPutts()'>&#9989; Passer au trou suivant</button>";
+    html += "<button class='okbtn' onclick='App.registerPutts()'>Terminer &#9989; Passer au trou suivant</button>";
     html += "</div>";
   }
 
@@ -904,6 +905,7 @@ function render(){
     html += "<h2 style='font-size:.75rem;display:flex;align-items:baseline;gap:6px;white-space:nowrap'>Résumé par bâton (jusqu'ici) <span style='font-size:.7rem;opacity:.85;text-transform:none;letter-spacing:0'>&mdash; "+boisCount+" coups de bois, "+ferCount+" de fer</span></h2>";
     html += summaryHTML();
     html += "</div>";
+    html += puttsPerHoleHTML();
   }
   if(UI.showExport){
     var txt = exportText();
@@ -983,34 +985,36 @@ function summaryHTML(){
     if(!agg[club]) agg[club] = {n:0,sum:0};
     agg[club].n++; agg[club].sum += dist;
   }
-  var totalPuttStrokes = 0, holesWithPutts = 0;
   Object.keys(ROUND.holes).forEach(function(n){
     var h = ROUND.holes[n];
-    var offGreenPutterCount = 0;
     h.shots.forEach(function(s){
-      if(s.club === "Putter"){ offGreenPutterCount++; return; } // le Putter est résumé séparément (roulés/trou), pas en distance
+      if(s.club === "Putter") return; // le Putter est résumé séparément (roulés/trou), pas en distance
       var dist = s.before - s.after;
       addStat(s.club, dist);
     });
-    var holePutts = offGreenPutterCount + puttCount(h);
-    if(holePutts>0){ holesWithPutts++; totalPuttStrokes += holePutts; }
   });
   var clubs = Object.keys(agg);
-  var hasPutts = holesWithPutts>0;
-  if(clubs.length===0 && !hasPutts) return "<div class='lead'>Aucun coup enregistré pour l'instant.</div>";
+  if(clubs.length===0) return "<div class='lead'>Aucun coup enregistré pour l'instant.</div>";
   var maxAvg = 0;
   clubs.forEach(function(c){ maxAvg = Math.max(maxAvg, agg[c].sum/agg[c].n); });
-  var html = clubs.map(function(c){
+  return clubs.map(function(c){
     var avg = Math.round(agg[c].sum/agg[c].n);
     var pct = maxAvg>0 ? Math.round(avg/maxAvg*100) : 0;
     return "<div class='summarybar'><div class='name'>"+c+"</div><div class='track'><div class='fill' style='width:"+pct+"%'></div></div><div class='val'>"+avg+"v</div></div>";
   }).join("");
-  if(hasPutts){
-    var ppg = totalPuttStrokes/holesWithPutts;
-    var pctPutt = Math.min(100, Math.round(ppg/3*100));
-    html += "<div class='summarybar'><div class='name'>Putter</div><div class='track'><div class='fill' style='width:"+pctPutt+"%'></div></div><div class='val'>"+ppg.toFixed(2)+"/trou</div></div>";
-  }
-  return html;
+}
+function puttsPerHoleHTML(){
+  var totalPuttStrokes = 0, holesWithPutts = 0;
+  Object.keys(ROUND.holes).forEach(function(n){
+    var h = ROUND.holes[n];
+    var offGreenPutterCount = h.shots.filter(function(s){ return s.club==="Putter"; }).length;
+    var holePutts = offGreenPutterCount + puttCount(h);
+    if(holePutts>0){ holesWithPutts++; totalPuttStrokes += holePutts; }
+  });
+  if(holesWithPutts===0) return "";
+  var ppg = totalPuttStrokes/holesWithPutts;
+  var color = ppg >= 2.5 ? "var(--danger)" : "var(--accent)";
+  return "<div class='card' style='text-align:center'><div class='lead' style='font-size:.95rem'>Actuellement votre moyenne de roulés par trou est de <b style='color:"+color+";font-size:1.25rem'>"+ppg.toFixed(2)+"</b></div></div>";
 }
 
 function exportText(){

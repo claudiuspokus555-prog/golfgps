@@ -483,7 +483,7 @@ var App = {
   startEditDist:function(){ UI.editingStart=true; UI.digits=""; UI.touched=false; UI.gpsFilled=false; render(); },
   cancelEditDist:function(){ UI.editingStart=false; UI.digits=""; UI.touched=false; UI.gpsFilled=false; render(); },
   confirmEditDist:function(){
-    if(!UI.touched) return;
+    if(UI.digits==="") return;
     var hd = getHole(ROUND.cur);
     var v = UI.digits===""?0:parseInt(UI.digits,10);
     hd.startDist = v;
@@ -517,7 +517,7 @@ var App = {
     render();
   },
   confirmShotFromSpotScreen:function(){
-    if(!UI.touched) return;
+    if(UI.digits==="") return;
     var typed = UI.digits===""?0:parseInt(UI.digits,10);
     var isNearGreenType = (UI.spotForShot==="Frise du vert" || UI.spotForShot==="Trappe de sable");
     var useFeet = isNearGreenType && typed<50;
@@ -806,7 +806,7 @@ function render(){
       html += keypadHTML(String(hd.startDist));
       html += "<div style='display:flex;gap:8px'>";
       html += "<button class='btn-ghost' style='flex:1' onclick='App.cancelEditDist()'>Annuler</button>";
-      html += "<button class='okbtn' style='flex:2'"+(!UI.touched?" disabled":"")+" onclick='App.confirmEditDist()'>&#9989; OK</button>";
+      html += "<button class='okbtn' style='flex:2'"+(UI.digits===""?" disabled":"")+" onclick='App.confirmEditDist()'>&#9989; OK</button>";
       html += "</div>";
     } else if(!UI.locked){
       html += "<div class='clubgrid'>";
@@ -829,7 +829,7 @@ function render(){
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle distance du "+targetWord+" ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
-      html += "<button class='okbtn'"+(!UI.touched?" disabled":"")+" onclick='App.confirmShotFromSpotScreen()'>&#9989; OK</button>";
+      html += "<button class='okbtn'"+(UI.digits===""?" disabled":"")+" onclick='App.confirmShotFromSpotScreen()'>&#9989; Confirmer la distance</button>";
     }
     html += "</div>";
   } else {

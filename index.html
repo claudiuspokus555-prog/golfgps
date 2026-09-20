@@ -666,7 +666,8 @@ function shotListHTML(hd){
     var dist = s.before - s.after;
     var mic = voiceNoteButtonHTML(ROUND.cur, i);
     var noteLine = s.note ? "<div class='voicenote'>🎤 "+escapeHtml(s.note)+"</div>" : "";
-    var spotTag = s.spot ? " <b style='color:var(--amber)'>&mdash; "+escapeHtml(s.spot)+"</b>" : "";
+    var spotShort = s.spot === "Trappe de sable" ? "Sable" : s.spot;
+    var spotTag = s.spot ? " <b style='color:var(--amber)'>&mdash; "+escapeHtml(spotShort)+"</b>" : "";
     var isPutter = s.club === "Putter";
     var distTxt = isPutter ? Math.round(dist*3)+" pieds" : dist+"v";
     var resteTxt = isPutter ? Math.round(s.after*3)+" pieds" : s.after+"v"+(s.origFeet!=null ? " ("+s.origFeet+" pieds)" : "");
@@ -700,16 +701,21 @@ function puttsListHTML(hd){
   }
   var k = filled.length;
   if(k===0) return "";
-  var parts = [];
+  var ORD = ["1er","2e","3e","4e"];
+  var lines = [];
   for(var m=0; m<k-1; m++){
     var n = hd.shots.length + m + 1;
     var length = filled[m] - filled[m+1];
-    parts.push("<b>C"+n+" Roulé</b> <b>"+length+"pi</b>&rarr;<b>"+filled[m+1]+"pi</b>");
+    lines.push("<div><b>C"+n+" Putter</b> — "+ORD[m]+" roulé de <b>"+length+" pieds</b>, vous êtes maintenant à <b>"+filled[m+1]+" pieds</b></div>");
   }
   var nFinal = hd.shots.length + k;
   var lastIsLiveUncommitted = (target===k-1) && liveTyping && hd.putts[target]===null;
-  parts.push("<b>C"+nFinal+" Roulé</b> <b>"+filled[k-1]+"pi</b>&rarr;"+(lastIsLiveUncommitted ? "&hellip;" : "rentré"));
-  return "<div>"+parts.join(", ")+"</div>";
+  if(lastIsLiveUncommitted){
+    lines.push("<div><b>C"+nFinal+" Putter</b> — "+ORD[k-1]+" roulé en cours&hellip; (actuellement à "+filled[k-1]+" pieds)</div>");
+  } else {
+    lines.push("<div><b>C"+nFinal+" Putter</b> — "+ORD[k-1]+" roulé de <b>"+filled[k-1]+" pieds</b>, rentré !</div>");
+  }
+  return lines.join("");
 }
 function shotsCardHTML(hd){
   var sc = hd.score!==null ? hd.score : autoScore(hd);
@@ -895,7 +901,7 @@ function render(){
       });
     });
     html += "<div class='card'>";
-    html += "<h2 style='font-size:.75rem;display:flex;align-items:baseline;gap:6px;white-space:nowrap'>Résumé par bâton (jusqu'ici) <span style='font-size:.7rem;opacity:.85;text-transform:none;letter-spacing:0'>&mdash; "+boisCount+" Bois, "+ferCount+" Fer</span></h2>";
+    html += "<h2 style='font-size:.75rem;display:flex;align-items:baseline;gap:6px;white-space:nowrap'>Résumé par bâton (jusqu'ici) <span style='font-size:.7rem;opacity:.85;text-transform:none;letter-spacing:0'>&mdash; "+boisCount+" coups de bois, "+ferCount+" de fer</span></h2>";
     html += summaryHTML();
     html += "</div>";
   }

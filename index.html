@@ -647,6 +647,16 @@ function commitPuttEdit(){
 function puttCount(hd){
   return hd.putts.filter(function(p){ return p!==null; }).length;
 }
+function puttLengths(hd){
+  var filled = [];
+  for(var i=0;i<4;i++){ if(hd.putts[i]===null) break; filled.push(hd.putts[i]); }
+  var k = filled.length;
+  var lens = [];
+  if(k===0) return lens;
+  for(var m=0;m<k-1;m++){ lens.push(filled[m]-filled[m+1]); }
+  lens.push(filled[k-1]);
+  return lens;
+}
 function autoScore(hd){
   var n = hd.shots.length;
   if(hd.onGreen){
@@ -979,11 +989,19 @@ function scoreTableHTML(){
 }
 function summaryHTML(){
   var agg = {};
+  function addStat(club, dist){
+    if(!agg[club]) agg[club] = {n:0,sum:0};
+    agg[club].n++; agg[club].sum += dist;
+  }
   Object.keys(ROUND.holes).forEach(function(n){
-    ROUND.holes[n].shots.forEach(function(s){
+    var h = ROUND.holes[n];
+    h.shots.forEach(function(s){
       var dist = s.before - s.after;
-      if(!agg[s.club]) agg[s.club] = {n:0,sum:0};
-      agg[s.club].n++; agg[s.club].sum += dist;
+      if(s.club === "Putter") dist = dist*3; // normalise en pieds, comme les roulés
+      addStat(s.club, dist);
+    });
+    puttLengths(h).forEach(function(len){
+      addStat("Putter", len); // déjà en pieds
     });
   });
   var clubs = Object.keys(agg);
@@ -993,7 +1011,7 @@ function summaryHTML(){
   return clubs.map(function(c){
     var avg = Math.round(agg[c].sum/agg[c].n);
     var pct = maxAvg>0 ? Math.round(avg/maxAvg*100) : 0;
-    var label = (c==="Putter") ? Math.round(avg*3)+"pi" : avg+"v";
+    var label = (c==="Putter") ? avg+"pi" : avg+"v";
     return "<div class='summarybar'><div class='name'>"+c+"</div><div class='track'><div class='fill' style='width:"+pct+"%'></div></div><div class='val'>"+label+"</div></div>";
   }).join("");
 }

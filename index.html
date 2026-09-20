@@ -520,30 +520,15 @@ var App = {
     UI.digits = UI.digits.slice(0,-1); render();
   },
   spotShot:function(spot){
-    var hd = getHole(ROUND.cur);
-    var before = beforeDist(hd);
-    if(before < 50){
-      UI.pendingSpot = { spot:spot, mode:"feet", verges:null };
-      UI.digits=""; UI.touched=false;
-      render();
-      return;
-    }
     if(!UI.touched) return;
-    var verges = UI.digits===""?0:parseInt(UI.digits,10);
-    UI.pendingSpot = { spot:spot, mode:"club", verges:verges };
+    var typed = UI.digits===""?0:parseInt(UI.digits,10);
+    var verges = typed < 50 ? Math.round(typed/3) : typed;
+    UI.pendingSpot = { spot:spot, verges:verges };
     UI.digits=""; UI.touched=false;
     render();
   },
   cancelPendingSpot:function(){
     UI.pendingSpot = null; UI.digits=""; UI.touched=false; render();
-  },
-  pendingSpotFeetNext:function(){
-    if(!UI.touched) return;
-    var feet = UI.digits===""?0:parseInt(UI.digits,10);
-    UI.pendingSpot.verges = Math.round(feet/3);
-    UI.pendingSpot.mode = "club";
-    UI.digits=""; UI.touched=false;
-    render();
   },
   pendingSpotClubChosen:function(c){
     var ps = UI.pendingSpot;
@@ -817,20 +802,13 @@ function render(){
     } else if(UI.pendingSpot){
       var ps = UI.pendingSpot;
       var psPlace = ps.spot==="Trappe de sable" ? "la trappe de sable" : "la frise du vert";
-      if(ps.mode==="feet"){
-        html += "<div class='lead' style='text-align:center'>Vous êtes sur "+psPlace+" — à combien de pieds êtes-vous du trou ? <button class='linklike' onclick='App.cancelPendingSpot()'>annuler</button></div>";
-        html += keypadHTML("");
-        html += "<button class='okbtn'"+(!UI.touched?" disabled":"")+" onclick='App.pendingSpotFeetNext()'>&#9989; Suivant</button>";
-      } else {
-        html += "<div class='lead' style='text-align:center'>Avec quel bâton allez-vous frapper la balle depuis "+psPlace+" ? <button class='linklike' onclick='App.cancelPendingSpot()'>annuler</button></div>";
-        html += "<div class='clubgrid'>";
-        CLUBS.forEach(function(c){
-          html += "<button class='clubbtn' onclick='App.pendingSpotClubChosen(\""+c+"\")'>"+clubLabel(c)+"</button>";
-        });
-        html += "</div>";
-      }
+      html += "<div class='lead' style='text-align:center'>Avec quel bâton allez-vous frapper la balle depuis "+psPlace+" ? <button class='linklike' onclick='App.cancelPendingSpot()'>annuler</button></div>";
+      html += "<div class='clubgrid'>";
+      CLUBS.forEach(function(c){
+        html += "<button class='clubbtn' onclick='App.pendingSpotClubChosen(\""+c+"\")'>"+clubLabel(c)+"</button>";
+      });
+      html += "</div>";
     } else {
-      var closeRange = before < 50;
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>, vous êtes à quelle distance du vert ? <button class='linklike' onclick='App.cancelLock()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");

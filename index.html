@@ -688,8 +688,15 @@ function shotListHTML(hd){
 // Le tout dernier coup roulé (celui qui rentre la balle) n'a pas sa propre case --
 // sa longueur est simplement la valeur de la dernière case remplie.
 function puttsListHTML(hd){
+  var target = puttTargetIndex(hd);
+  var liveTyping = UI.touched && UI.digits!=="";
   var filled = [];
-  for(var i=0;i<4;i++){ if(hd.putts[i]===null) break; filled.push(hd.putts[i]); }
+  for(var i=0;i<4;i++){
+    var v = hd.putts[i];
+    if(v===null && i===target && liveTyping) v = parseInt(UI.digits,10);
+    if(v===null || v===undefined) break;
+    filled.push(v);
+  }
   var k = filled.length;
   if(k===0) return "";
   var parts = [];
@@ -699,7 +706,8 @@ function puttsListHTML(hd){
     parts.push("<b>C"+n+" Roulé</b> <b>"+length+"pi</b>&rarr;<b>"+filled[m+1]+"pi</b>");
   }
   var nFinal = hd.shots.length + k;
-  parts.push("<b>C"+nFinal+" Roulé</b> <b>"+filled[k-1]+"pi</b>&rarr;rentré");
+  var lastIsLiveUncommitted = (target===k-1) && liveTyping && hd.putts[target]===null;
+  parts.push("<b>C"+nFinal+" Roulé</b> <b>"+filled[k-1]+"pi</b>&rarr;"+(lastIsLiveUncommitted ? "&hellip;" : "rentré"));
   return "<div>"+parts.join(", ")+"</div>";
 }
 function shotsCardHTML(hd){

@@ -833,8 +833,10 @@ function render(){
       html += "<button class='greenbtn' style='margin-top:8px' onclick='App.confirmShot(0)'>&#9971; Vert (sur le vert)</button>";
     } else {
       var spotPhrase = UI.spotForShot ? " depuis "+spotPlaceLabel(UI.spotForShot) : "";
-      var targetWord = (UI.spotForShot === "Frise du vert") ? "trou" : "vert";
-      html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle distance du "+targetWord+" ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
+      var isFrise = UI.spotForShot === "Frise du vert";
+      var targetWord = isFrise ? "trou" : "vert";
+      var distPhrase = isFrise ? "<b>DISTANCE EN PIEDS</b>" : "distance";
+      html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle "+distPhrase+" du "+targetWord+" ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
       html += "<button class='okbtn'"+(UI.digits===""?" disabled":"")+" onclick='App.confirmShotFromSpotScreen()'>&#9989; Confirmer la distance</button>";

@@ -688,6 +688,7 @@ function shotListHTML(hd){
 // Le tout dernier coup roulé (celui qui rentre la balle) n'a pas sa propre case --
 // sa longueur est simplement la valeur de la dernière case remplie.
 function puttsListHTML(hd){
+  if(!hd.onGreen) return "";
   var target = puttTargetIndex(hd);
   var liveTyping = UI.touched && UI.digits!=="";
   var filled = [];

@@ -53,13 +53,13 @@
   .shotbtn:active{ filter:brightness(.9); }
   .shotbtn[disabled]{ opacity:.4; pointer-events:none; }
 
-  .keydisplay{ text-align:center; font-size:1.9rem; font-weight:900; color:var(--text); background:var(--bg); border:2px solid var(--accent); border-radius:12px; padding:5px; min-height:1.3em; }
-  .keypad{ display:grid; grid-template-columns:repeat(6,1fr); gap:5px; }
+  .keydisplay{ text-align:center; font-size:1.9rem; font-weight:900; color:var(--text); background:var(--bg); border:2px solid var(--accent); border-radius:12px; padding:5px; min-height:1.3em; display:flex; align-items:center; justify-content:center; }
+  .clearbtn{ background:var(--bg); border:1.75px solid var(--border); border-radius:12px; color:var(--text-muted); font-weight:800; font-size:.85rem; }
+  .clearbtn:active{ background:var(--border); }
+  .keypad{ display:grid; grid-template-columns:repeat(5,1fr); gap:5px; }
   .keybtn{ background:var(--bg); border:1.75px solid var(--border); border-radius:9px; padding:11px 1px; font-size:1.05rem; font-weight:900; color:var(--text); }
   .keybtn:active{ background:var(--border); }
   .keybtn.wide{ grid-column:span 1; }
-  .keybtn-back{ background:var(--danger); border-color:var(--danger); color:#fff; font-size:1.5rem; padding:9px 1px; grid-column:span 2; }
-  .keybtn-back:active{ background:#7a2312; }
   .greenbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--accent); color:var(--accent); border-radius:10px; padding:10px 2px; font-weight:800; font-size:.95rem; }
   .greenbtn:active{ background:var(--accent); color:var(--accent-text); }
   .greenbtn[disabled]{ opacity:.35; pointer-events:none; }
@@ -539,9 +539,8 @@ var App = {
     if(UI.digits.length>=3) return;
     UI.digits += d; render();
   },
-  back:function(){
-    if(!UI.touched || UI.gpsFilled){ UI.digits=""; UI.touched=true; UI.gpsFilled=false; render(); return; }
-    UI.digits = UI.digits.slice(0,-1); render();
+  clearDigits:function(){
+    UI.digits=""; UI.touched=true; UI.gpsFilled=false; render();
   },
   confirmShot:function(after, spot, origFeet){
     var hd = getHole(ROUND.cur);
@@ -709,13 +708,14 @@ function shotsCardHTML(hd){
 function keypadHTML(defaultVal){
   var shown = UI.touched ? UI.digits : String(defaultVal===undefined?"":defaultVal);
   var html = "";
-  html += "<div class='keydisplay'>"+(shown===""?"&nbsp;":shown)+"</div>";
+  html += "<div style='display:flex;gap:6px;align-items:stretch'>";
+  html += "<div class='keydisplay' style='flex:3'>"+(shown===""?"&nbsp;":shown)+"</div>";
+  html += "<button class='clearbtn' style='flex:1' onclick='App.clearDigits()'>Effacer</button>";
+  html += "</div>";
   html += "<div class='keypad'>";
-  [1,2,3,4,5,6,7,8,9].forEach(function(d){
+  [1,2,3,4,5,6,7,8,9,0].forEach(function(d){
     html += "<button class='keybtn' onclick='App.key(\""+d+"\")'>"+d+"</button>";
   });
-  html += "<button class='keybtn' onclick='App.key(\"0\")'>0</button>";
-  html += "<button class='keybtn keybtn-back' onclick='App.back()'>&larr;</button>";
   html += "</div>";
   return html;
 }

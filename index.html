@@ -405,7 +405,7 @@ if(!hasAnyShots){
 } else if(ROUND.setupConfirmed === undefined){
   ROUND.setupConfirmed = true;
 }
-var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:false, confirmingReset:false, editingStart:false, pendingSpot:null };
+var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, pendingSpot:null };
 
 function loadRound(){
   try{
@@ -605,7 +605,7 @@ var App = {
   },
   resetRound:function(){
     ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{} };
-    UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, confirmingReset:false };
+    UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, pendingSpot:null };
     saveRound(); render();
   },
   toggleExport:function(){ UI.showExport = !UI.showExport; render(); },
@@ -835,8 +835,8 @@ function render(){
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
       html += "<div style='display:flex;gap:8px'>";
-      html += "<button class='spotbtn'"+(!closeRange && !UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.spotShot('Frise du vert')\">&#127793; Frise</button>";
-      html += "<button class='spotbtn'"+(!closeRange && !UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.spotShot('Trappe de sable')\">&#127958; Sable</button>";
+      html += "<button class='spotbtn'"+(!UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.spotShot('Frise du vert')\">&#127793; Frise</button>";
+      html += "<button class='spotbtn'"+(!UI.touched?" disabled":"")+" style='flex:1' onclick=\"App.spotShot('Trappe de sable')\">&#127958; Sable</button>";
       html += "</div>";
       html += "<div style='display:flex;gap:8px'>";
       html += "<button class='greenbtn' style='flex:1' onclick='App.confirmShot(0)'>&#9971; Vert</button>";

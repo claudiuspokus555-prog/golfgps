@@ -647,16 +647,6 @@ function commitPuttEdit(){
 function puttCount(hd){
   return hd.putts.filter(function(p){ return p!==null; }).length;
 }
-function puttLengths(hd){
-  var filled = [];
-  for(var i=0;i<4;i++){ if(hd.putts[i]===null) break; filled.push(hd.putts[i]); }
-  var k = filled.length;
-  var lens = [];
-  if(k===0) return lens;
-  for(var m=0;m<k-1;m++){ lens.push(filled[m]-filled[m+1]); }
-  lens.push(filled[k-1]);
-  return lens;
-}
 function autoScore(hd){
   var n = hd.shots.length;
   if(hd.onGreen){
@@ -993,27 +983,34 @@ function summaryHTML(){
     if(!agg[club]) agg[club] = {n:0,sum:0};
     agg[club].n++; agg[club].sum += dist;
   }
+  var totalPuttStrokes = 0, holesWithPutts = 0;
   Object.keys(ROUND.holes).forEach(function(n){
     var h = ROUND.holes[n];
+    var offGreenPutterCount = 0;
     h.shots.forEach(function(s){
+      if(s.club === "Putter"){ offGreenPutterCount++; return; } // le Putter est résumé séparément (roulés/trou), pas en distance
       var dist = s.before - s.after;
-      if(s.club === "Putter") dist = dist*3; // normalise en pieds, comme les roulés
       addStat(s.club, dist);
     });
-    puttLengths(h).forEach(function(len){
-      addStat("Putter", len); // déjà en pieds
-    });
+    var holePutts = offGreenPutterCount + puttCount(h);
+    if(holePutts>0){ holesWithPutts++; totalPuttStrokes += holePutts; }
   });
   var clubs = Object.keys(agg);
-  if(clubs.length===0) return "<div class='lead'>Aucun coup enregistré pour l'instant.</div>";
+  var hasPutts = holesWithPutts>0;
+  if(clubs.length===0 && !hasPutts) return "<div class='lead'>Aucun coup enregistré pour l'instant.</div>";
   var maxAvg = 0;
   clubs.forEach(function(c){ maxAvg = Math.max(maxAvg, agg[c].sum/agg[c].n); });
-  return clubs.map(function(c){
+  var html = clubs.map(function(c){
     var avg = Math.round(agg[c].sum/agg[c].n);
     var pct = maxAvg>0 ? Math.round(avg/maxAvg*100) : 0;
-    var label = (c==="Putter") ? avg+"pi" : avg+"v";
-    return "<div class='summarybar'><div class='name'>"+c+"</div><div class='track'><div class='fill' style='width:"+pct+"%'></div></div><div class='val'>"+label+"</div></div>";
+    return "<div class='summarybar'><div class='name'>"+c+"</div><div class='track'><div class='fill' style='width:"+pct+"%'></div></div><div class='val'>"+avg+"v</div></div>";
   }).join("");
+  if(hasPutts){
+    var ppg = totalPuttStrokes/holesWithPutts;
+    var pctPutt = Math.min(100, Math.round(ppg/3*100));
+    html += "<div class='summarybar'><div class='name'>Putter</div><div class='track'><div class='fill' style='width:"+pctPutt+"%'></div></div><div class='val'>"+ppg.toFixed(2)+"/trou</div></div>";
+  }
+  return html;
 }
 
 function exportText(){

@@ -1296,7 +1296,7 @@ var Voice = {
       if(r && r.say) said.push(r.say);
       noPrompt = !!(r && r.noPrompt);
     }
-    if(err){ this.setReply(said.concat([err]).join(". "), true); return; }
+    if(err){ this.setReply(said.concat([err]).join(". ")+" (j'ai entendu : « "+best.text+" »)", true); return; }
     var next = noPrompt ? "" : this.nextPrompt();
     this.setReply(said.concat(next ? [next] : []).join(". "), false);
   },
@@ -1387,7 +1387,16 @@ function parseVoice(txt){
     }
     // bâtons
     if(w === "driver"){ cmds.push({type:"club", value:"Bois 1"}); continue; }
-    if((w === "bois" || w === "boit" || w === "boire") && isNum(n1) && (n1==="1" || n1==="5")){ cmds.push({type:"club", value:"Bois "+n1}); i++; continue; }
+    if(w === "bois" || w === "boit" || w === "boire" || w === "boa" || w === "bo"){
+      // « bois 1 », « bois numéro 1 », « bois un/hein/in », « bois cinq/saint/sain »
+      var k = i+1;
+      while(["numero","no","le","#","de"].indexOf(tk[k])>=0) k++;
+      var nx = tk[k];
+      if(nx==="1" || nx==="in" || nx==="hein" || nx==="1er" || nx==="premier"){ cmds.push({type:"club", value:"Bois 1"}); i = k; continue; }
+      if(nx==="5" || nx==="saint" || nx==="sain" || nx==="sein" || nx==="sink" || nx==="seing"){ cmds.push({type:"club", value:"Bois 5"}); i = k; continue; }
+      if(w === "bois"){ cmds.push({type:"boisAlone"}); continue; }
+      continue;
+    }
     if(w === "hybride" || w === "hybrid" || w === "hybrides"){ cmds.push({type:"club", value:"Hybride 3"}); if(n1==="3") i++; continue; }
     if(FER.test(w) && isNum(n1) && ["5","7","8","9"].indexOf(n1)>=0){ cmds.push({type:"club", value:"Fer "+n1}); i++; continue; }
     if(w === "pitching" || w === "pw" || w === "pitch" || (w === "p" && n1 === "w")){ cmds.push({type:"club", value:"PW"}); if(w==="p"||n1==="wedge") i++; continue; }
@@ -1404,7 +1413,7 @@ function parseVoice(txt){
     if(w === "trappe" || w === "bunker" || w === "fosse"){ cmds.push({type:"spot", value:"Trappe de sable"}); if(n1==="de" && tk[i+2]==="sable") i+=2; continue; }
     if(w === "sable"){ cmds.push({type:"sable"}); continue; } // trappe ou SW selon le moment
     if(w === "eau" || w === "lac" || w === "etang" || w === "riviere" || w === "ruisseau"){ cmds.push({type:"spot", value:"Eau"}); continue; }
-    if(w === "boise" || w === "foret" || w === "arbres" || w === "bois"){ cmds.push({type:"spot", value:"Boisé"}); continue; }
+    if(w === "boise" || w === "foret" || w === "arbres"){ cmds.push({type:"spot", value:"Boisé"}); continue; }
     if(w === "frise" || w === "frange" || w === "collet" || w === "collier" || w === "frises"){ cmds.push({type:"spot", value:"Frise du vert"}); continue; }
     if(w === "vert" || w === "green" || w === "greens"){ cmds.push({type:"green"}); continue; }
     // distance
@@ -1472,6 +1481,11 @@ function runVoiceCommand(c){
       App.pickClub(c.value);
       App.lockShot();
       return { say:(r.say ? r.say+". " : "")+c.value };
+    case "boisAlone":
+      // « bois » tout seul : le boisé si un coup est en cours, sinon le bâton
+      if(UI.locked) return runVoiceCommand({ type:"spot", value:"Boisé" });
+      if(hd.shots.length === 0) return runVoiceCommand({ type:"club", value:"Bois 1" });
+      return { err:"Bois 1 ou bois 5 ?" };
     case "sable":
       if(UI.locked) return runVoiceCommand({ type:"spot", value:"Trappe de sable" });
       return runVoiceCommand({ type:"club", value:"SW" });

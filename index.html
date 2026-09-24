@@ -123,6 +123,24 @@
   .micbtn.recording{ border-color:var(--danger); color:var(--danger); }
   .voicenote{ font-size:.8rem; color:var(--text-muted); font-style:italic; margin:2px 0 4px 4px; }
   .voicenote.interim{ opacity:.6; }
+
+  /* ---------- choix de la version + version parlée ---------- */
+  .modebtn{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; width:100%; text-align:left; background:var(--bg); border:2px solid var(--border); border-radius:14px; padding:13px 14px; color:var(--text); }
+  .modebtn .mt{ font-size:1.15rem; font-weight:900; }
+  .modebtn .md{ font-size:.82rem; font-weight:700; color:var(--text-muted); line-height:1.35; }
+  .modebtn:active{ background:var(--border); }
+  .modebtn.voice{ border-color:var(--accent); }
+  body.voice-on #app{ padding-bottom:calc(170px + env(safe-area-inset-bottom)); }
+  .voicebar{ position:fixed; left:0; right:0; bottom:0; z-index:900; background:#FFFFFF; border-top:2px solid var(--accent); padding:8px 11px calc(10px + env(safe-area-inset-bottom)); }
+  .voicebar-in{ max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:6px; }
+  .voiceheard{ font-size:.82rem; color:var(--text-muted); min-height:1.2em; text-align:center; }
+  .voiceheard b{ color:var(--text); }
+  .voicereply{ font-size:.9rem; font-weight:800; color:var(--accent); text-align:center; min-height:1.2em; }
+  .voicereply.err{ color:var(--danger); }
+  .bigmic{ width:100%; border:none; border-radius:16px; padding:15px 6px; font-size:1.25rem; font-weight:900; background:var(--accent); color:#fff; }
+  .bigmic.listening{ background:var(--danger); }
+  .voiceopts{ display:flex; justify-content:space-between; gap:6px; }
+  .voiceopts button{ flex:1; font-size:.72rem; padding:4px; }
 </style>
 
 <div id="app"></div>
@@ -410,10 +428,20 @@ if(!hasAnyShots){
   ROUND.course = null;
   ROUND.tee = null;
   ROUND.setupConfirmed = false;
+  ROUND.mode = null;
+  ROUND.date = null;
 } else if(ROUND.setupConfirmed === undefined){
   ROUND.setupConfirmed = true;
 }
 var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
+if(hasAnyShots && !ROUND.mode) ROUND.mode = "complete"; // ronde commencée avant l'ajout des versions
+var MODE_LABELS = { complete:"Complète", allegee:"Allégée", parlee:"Parlée" };
+function isVoiceMode(){ return ROUND.mode === "parlee"; }
+function skipsSpotQuestion(){ return ROUND.mode === "allegee"; }
+function todayISO(){
+  var d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
 function spotPlaceLabel(spot){
   var map = { "Fairway":"le fairway", "Herbe longue":"l'herbe longue", "Trappe de sable":"la trappe de sable", "Eau":"l'eau", "Boisé":"le boisé", "Frise du vert":"la frise du vert" };
   return map[spot] || spot;
@@ -462,10 +490,21 @@ var App = {
     ROUND.holes = {};
     saveRound(); render();
   },
-  confirmSetup:function(){
+  chooseMode:function(m){
+    ROUND.mode = m;
+    saveRound(); render();
+    if(m === "parlee") Voice.onModeChosen();
+  },
+  changeMode:function(){
+    Voice.stop();
+    ROUND.mode = null;
+    saveRound(); render();
+  },
+  confirmSetup:function(fromVoice){
     if(!ROUND.course || !ROUND.tee) return;
     ROUND.setupConfirmed = true;
-    if(PIN_SEED[ROUND.course]){
+    if(!ROUND.date) ROUND.date = todayISO();
+    if(PIN_SEED[ROUND.course] && !fromVoice && !isVoiceMode()){
       if(confirm("Réinitialiser les repères GPS de "+ROUND.course+" à leur position Google Earth d'origine avant de commencer ?")){
         resetCoursePinsToGoogleEarth(ROUND.course);
       }
@@ -501,7 +540,7 @@ var App = {
     var hd = getHole(ROUND.cur);
     var club = UI.pendingClub || defaultClubFor(hd);
     if(!club) return;
-    UI.locked = club; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.awaitingSpot=true; UI.spotForShot=null;
+    UI.locked = club; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.awaitingSpot=!skipsSpotQuestion(); UI.spotForShot=null;
     if(hd.shots.length===0 && !hd.teeGPS && GPS.lastFix){ hd.teeGPS = GPS.lastFix; saveRound(); }
     render();
     updateSuggestion();
@@ -601,7 +640,8 @@ var App = {
     UI.confirmingReset = false; render();
   },
   resetRound:function(){
-    ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{} };
+    Voice.stop();
+    ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{}, mode:null, date:null };
     UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
     saveRound(); render();
   },
@@ -776,6 +816,16 @@ function render(){
   html += "<button class='btn-ghost btn-sm2' style='width:auto;padding:4px 10px' onclick='App.toggleFullscreen()'>"+(isFS?"&#8601; Quitter le plein écran":"&#10021; Plein écran")+"</button>";
   html += "</div>";
 
+  if(!ROUND.mode){
+    html += "<div class='lead' style='text-align:center;font-weight:900;font-size:1.05rem;color:var(--text)'>Quelle version voulez-vous utiliser aujourd'hui ?</div>";
+    html += "<button class='modebtn' onclick='App.chooseMode(\"complete\")'><span class='mt'>&#9997;&#65039; Complète</span><span class='md'>La version actuelle, sans changement : bâton, où est tombée la balle, distance.</span></button>";
+    html += "<button class='modebtn' onclick='App.chooseMode(\"allegee\")'><span class='mt'>&#9889; Allégée</span><span class='md'>Moins de clics : pas de question « où est tombée votre balle ». Bâton &rarr; Je Frappe &rarr; distance.</span></button>";
+    html += "<button class='modebtn voice' onclick='App.chooseMode(\"parlee\")'><span class='mt'>&#127908; Parlée</span><span class='md'>Tu parles au cell : « Cacouna, blancs, c'est parti », « bois 1 », « fairway », « fer 7 »&hellip; L'écran normal reste utilisable si tu préfères toucher.</span></button>";
+    document.getElementById("app").innerHTML = html;
+    document.body.classList.remove("voice-on");
+    return;
+  }
+
   if(!ROUND.setupConfirmed){
     if(!(ROUND.course && ROUND.tee)){
       html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez votre terrain et votre départ (Rouge ou Blanc)</div>";
@@ -799,7 +849,11 @@ function render(){
     if(ROUND.course && PIN_SEED[ROUND.course]){
       html += "<button class='linklike' style='display:block;margin:4px auto 0' onclick='App.resetCoursePins()'>🔄 Réinitialiser les repères GPS de "+ROUND.course+"</button>";
     }
+    html += modeLineHTML();
+    if(isVoiceMode()) html += "<div class='lead' style='text-align:center'>Dis par exemple : « <b>Cacouna, départ des blancs, c'est parti</b> »</div>";
+    html += Voice.barHTML();
     document.getElementById("app").innerHTML = html;
+    document.body.classList.toggle("voice-on", isVoiceMode());
     return;
   }
 
@@ -810,6 +864,7 @@ function render(){
   html += "</div>";
 
   html += "<div class='lead' style='text-align:center'>Vous avez choisi <b style='color:var(--accent)'>"+ROUND.course+"</b> à partir de <b style='color:var(--accent)'>"+(ROUND.tee==="rouge"?"Rouge":"Blanc")+"</b> <button class='linklike' onclick='App.reopenSetup()'>changer</button></div>";
+  html += modeLineHTML();
 
   html += shotsCardHTML(hd);
 
@@ -856,6 +911,9 @@ function render(){
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
       html += "<button class='okbtn'"+(UI.digits===""?" disabled":"")+" onclick='App.confirmShotFromSpotScreen()'>&#9989; Confirmer la distance</button>";
+      if(ROUND.mode === "allegee" || isVoiceMode()){
+        html += "<button class='greenbtn' onclick='App.confirmShot(0)'>&#9971; Sur le vert</button>";
+      }
     }
     html += "</div>";
   } else {
@@ -932,7 +990,13 @@ function render(){
     html += "</div></div></div>";
   }
 
+  html += Voice.barHTML();
   document.getElementById("app").innerHTML = html;
+  document.body.classList.toggle("voice-on", isVoiceMode());
+}
+
+function modeLineHTML(){
+  return "<div class='lead' style='text-align:center;font-size:.78rem'>Version : <b>"+(MODE_LABELS[ROUND.mode]||"")+"</b> <button class='linklike' style='font-size:.75rem;margin-left:0' onclick='App.changeMode()'>changer de version</button></div>";
 }
 
 function holeScoreDisplay(n){
@@ -1018,8 +1082,9 @@ function puttsPerHoleHTML(){
 }
 
 function exportText(){
-  var d = new Date();
-  var dateStr = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  // Date où la ronde a commencé (confirmation du départ), pas celle de l'export —
+  // sinon une ronde exportée le lendemain portait la date du lendemain.
+  var dateStr = ROUND.date || todayISO();
   var lines = [];
   lines.push("Calcul de Drive - Ronde du "+dateStr);
   lines.push("Terrain : "+ROUND.course);
@@ -1071,6 +1136,415 @@ function exportText(){
   });
   return lines.join("\n");
 }
+
+// ---------------- Version PARLÉE : commandes vocales (Web Speech API de Chrome) ----------------
+// Appuie sur le gros micro, dis une ou plusieurs commandes d'affilée (« fer 7 fairway »),
+// l'appli les exécute dans l'ordre et répond à voix haute. L'écran normal reste utilisable.
+var Voice = {
+  listening:false, rec:null, heard:"", reply:"", replyErr:false,
+  handsFree:false, speakBack:true, wakeLock:null, restartTimer:null,
+
+  supported:function(){ return !!SpeechRecCtor; },
+
+  barHTML:function(){
+    if(!isVoiceMode()) return "";
+    var h = "<div class='voicebar'><div class='voicebar-in'>";
+    if(!this.supported()){
+      h += "<div class='voicereply err'>La reconnaissance vocale n'est pas disponible ici — ouvre l'appli dans Chrome.</div>";
+      return h + "</div></div>";
+    }
+    h += "<div class='voiceheard'>"+(this.heard ? "J'ai entendu : <b>« "+escapeHtml(this.heard)+" »</b>" : "Appuie sur le micro et parle")+"</div>";
+    h += "<div class='voicereply"+(this.replyErr?" err":"")+"'>"+escapeHtml(this.reply||"")+"</div>";
+    h += "<button class='bigmic"+(this.listening?" listening":"")+"' onclick='Voice.toggle()'>"+(this.listening?"&#9210; J'écoute&hellip; (touche pour arrêter)":"&#127908; Parler")+"</button>";
+    h += "<div class='voiceopts'>";
+    h += "<button class='btn-ghost' onclick='Voice.toggleHandsFree()'>"+(this.handsFree?"&#9989; Écoute continue":"&#11036; Écoute continue")+"</button>";
+    h += "<button class='btn-ghost' onclick='Voice.toggleSpeakBack()'>"+(this.speakBack?"&#128266; Réponse à voix haute":"&#128263; Réponse muette")+"</button>";
+    h += "<button class='btn-ghost' onclick='Voice.say(Voice.statusPhrase())'>&#10067; Où j'en suis</button>";
+    h += "</div></div></div>";
+    return h;
+  },
+
+  onModeChosen:function(){
+    this.reply = "Appuie sur le micro et dis ton terrain et ton départ.";
+    this.keepScreenOn();
+    render();
+  },
+
+  toggle:function(){ if(this.listening) this.stop(); else this.start(); },
+  toggleHandsFree:function(){
+    this.handsFree = !this.handsFree;
+    if(this.handsFree && !this.listening) this.start();
+    if(!this.handsFree && this.listening) this.stop();
+    render();
+  },
+  toggleSpeakBack:function(){
+    this.speakBack = !this.speakBack;
+    try{ if(!this.speakBack) window.speechSynthesis.cancel(); }catch(e){}
+    render();
+  },
+
+  keepScreenOn:function(){
+    try{
+      if("wakeLock" in navigator && !this.wakeLock){
+        navigator.wakeLock.request("screen").then(function(l){
+          Voice.wakeLock = l;
+          l.addEventListener("release", function(){ Voice.wakeLock = null; });
+        }).catch(function(){});
+      }
+    }catch(e){}
+  },
+
+  start:function(){
+    if(!this.supported() || this.listening) return;
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+    this.keepScreenOn();
+    var rec = new SpeechRecCtor();
+    rec.lang = "fr-CA";
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 3;
+    var gotFinal = false;
+    rec.onresult = function(e){
+      var res = e.results[e.results.length-1];
+      Voice.heard = res[0].transcript;
+      if(res.isFinal){
+        gotFinal = true;
+        var alts = [];
+        for(var i=0;i<res.length;i++) alts.push(res[i].transcript);
+        Voice.handle(alts);
+      } else {
+        render();
+      }
+    };
+    rec.onerror = function(e){
+      if(e.error === "not-allowed" || e.error === "service-not-allowed"){
+        Voice.handsFree = false;
+        Voice.setReply("Micro refusé — autorise le micro pour ce site dans Chrome (Paramètres des sites).", true);
+      } else if(e.error === "network"){
+        Voice.setReply("La reconnaissance vocale a besoin d'internet (données cellulaires).", true);
+      } else if(e.error === "no-speech" || e.error === "aborted"){
+        // silence : rien à dire
+      } else {
+        Voice.setReply("Erreur du micro ("+e.error+") — réessaie.", true);
+      }
+    };
+    rec.onend = function(){
+      Voice.listening = false; Voice.rec = null;
+      render();
+      if(Voice.handsFree) Voice.restartSoon();
+    };
+    this.rec = rec;
+    this.listening = true;
+    try{ rec.start(); }catch(err){ this.listening = false; this.rec = null; }
+    render();
+  },
+
+  stop:function(){
+    this.handsFree = false;
+    if(this.restartTimer){ clearTimeout(this.restartTimer); this.restartTimer = null; }
+    if(this.rec){ try{ this.rec.abort(); }catch(e){} }
+    this.listening = false; this.rec = null;
+  },
+
+  // En écoute continue, on attend que la réponse parlée soit finie avant de réécouter
+  // (sinon le micro entendrait la voix du cell).
+  restartSoon:function(){
+    if(this.restartTimer) clearTimeout(this.restartTimer);
+    this.restartTimer = setTimeout(function tick(){
+      Voice.restartTimer = null;
+      if(!Voice.handsFree || document.hidden) return;
+      var speaking = false;
+      try{ speaking = window.speechSynthesis.speaking; }catch(e){}
+      if(speaking){ Voice.restartTimer = setTimeout(tick, 300); return; }
+      Voice.start();
+    }, 400);
+  },
+
+  setReply:function(txt, isErr){
+    this.reply = txt; this.replyErr = !!isErr;
+    render();
+    this.say(txt);
+  },
+
+  say:function(txt){
+    if(!this.speakBack || !txt || !window.speechSynthesis) return;
+    try{
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(txt.replace(/—/g, ","));
+      u.lang = "fr-CA";
+      u.rate = 1.05;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  },
+
+  // ---------- compréhension de la phrase ----------
+  handle:function(alts){
+    var best = null;
+    for(var i=0;i<alts.length;i++){
+      var cmds = parseVoice(alts[i]);
+      if(cmds.length){ best = { text:alts[i], cmds:cmds }; break; }
+    }
+    if(!best){
+      this.setReply("Je n'ai pas compris « "+alts[0]+" ». Exemples : bois 1, fairway, reste 150, vert.", true);
+      return;
+    }
+    this.heard = best.text;
+    var said = [], err = null, noPrompt = false;
+    for(var j=0;j<best.cmds.length;j++){
+      var r = runVoiceCommand(best.cmds[j]);
+      if(r && r.err){ err = r.err; break; }
+      if(r && r.say) said.push(r.say);
+      noPrompt = !!(r && r.noPrompt);
+    }
+    if(err){ this.setReply(said.concat([err]).join(". "), true); return; }
+    var next = noPrompt ? "" : this.nextPrompt();
+    this.setReply(said.concat(next ? [next] : []).join(". "), false);
+  },
+
+  // Ce que l'appli attend maintenant, dit en une courte phrase.
+  nextPrompt:function(){
+    if(!ROUND.setupConfirmed){
+      if(!ROUND.course) return "Quel terrain ?";
+      if(!ROUND.tee) return "Départ des blancs ou des rouges ?";
+      return "Dis c'est parti pour commencer.";
+    }
+    var hd = getHole(ROUND.cur);
+    if(hd.onGreen){
+      if(hd.putts[0]===null) return "Sur le vert. À combien de pieds du trou ?";
+      return "Roulé suivant, à combien de pieds ? Ou dis rentré.";
+    }
+    if(UI.locked && UI.awaitingSpot) return "Où est tombée la balle ?";
+    if(UI.locked) return "Marche vers ta balle, puis dis le prochain bâton";
+    return "Quel bâton ?";
+  },
+
+  statusPhrase:function(){
+    if(!ROUND.setupConfirmed) return this.nextPrompt();
+    var hd = getHole(ROUND.cur);
+    var p = "Trou "+ROUND.cur+", par "+hd.par+". ";
+    if(hd.onGreen) return p + "Tu es sur le vert. " + this.nextPrompt();
+    if(UI.locked){
+      var d = UI.digits!=="" ? "Il reste environ "+UI.digits+" verges. " : "";
+      return p + "Coup au "+UI.locked+". " + d + this.nextPrompt();
+    }
+    return p + "Il reste "+beforeDist(hd)+" verges. " + this.nextPrompt();
+  }
+};
+
+// ---------- nombres dits en lettres → chiffres ----------
+var NUM_WORDS = { zero:0, un:1, une:1, deux:2, trois:3, quatre:4, cinq:5, six:6, sept:7, huit:8, neuf:9, dix:10,
+  onze:11, douze:12, treize:13, quatorze:14, quinze:15, seize:16, vingt:20, vingts:20, trente:30, quarante:40,
+  cinquante:50, soixante:60, cent:100, cents:100 };
+function normalizeVoice(txt){
+  var t = (txt||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  t = t.replace(/(\d)\s*(v|vg|verges?)\b/g, "$1 ");
+  t = t.replace(/[-',.!?;:]/g, " ").replace(/\s+/g, " ").trim();
+  var words = t.split(" "), out = [], cur = null, prev = null;
+  function flush(){ if(cur!==null){ out.push(String(cur)); cur = null; } }
+  for(var i=0;i<words.length;i++){
+    var w = words[i];
+    if(/^\d+$/.test(w)){
+      // « 1 50 » → 150 n'arrive presque jamais ; un nombre en chiffres est pris tel quel
+      flush(); out.push(w); prev = w; continue;
+    }
+    if(w === "et" && cur!==null && i+1<words.length && NUM_WORDS[words[i+1]]!==undefined){ prev = w; continue; }
+    if(NUM_WORDS[w]!==undefined){
+      var v = NUM_WORDS[w];
+      if(cur===null) cur = 0;
+      if(v === 100){ cur = (cur===0 ? 1 : cur) * 100; }
+      else if(v === 20 && prev === "quatre"){ cur = cur - 4 + 80; }
+      else cur += v;
+      prev = w; continue;
+    }
+    flush(); out.push(w); prev = w;
+  }
+  flush();
+  return out;
+}
+
+// Transforme une phrase en liste de commandes : {type, value}
+function parseVoice(txt){
+  var tk = normalizeVoice(txt), cmds = [];
+  var isNum = function(x){ return x!==undefined && /^\d+$/.test(x); };
+  var FER = /^(fer|faire|fair|ferre|fers|ferres)$/;
+  for(var i=0;i<tk.length;i++){
+    var w = tk[i], n1 = tk[i+1], n2 = tk[i+2];
+    // note vocale libre : tout le reste de la phrase
+    if(w === "note"){ var rest = tk.slice(i+1).join(" "); if(rest) cmds.push({type:"note", value:rest}); break; }
+    // terrain / départ
+    if(w === "cacouna" || w === "kakouna" || w === "cacona"){ cmds.push({type:"course", value:"Golf Cacouna"}); continue; }
+    if(w === "neigette" || w === "negette" || (w === "val" && (n1||"").indexOf("nei")===0)){ cmds.push({type:"course", value:"Val-Neigette"}); if(w==="val") i++; continue; }
+    if(w === "blanc" || w === "blancs" || w === "blanche" || w === "blanches"){ cmds.push({type:"tee", value:"blanc"}); continue; }
+    if(w === "rouge" || w === "rouges"){ cmds.push({type:"tee", value:"rouge"}); continue; }
+    if((w === "c" && n1 === "est" && (n2 === "parti" || n2 === "partie")) ){ cmds.push({type:"go"}); i+=2; continue; }
+    if(w === "parti" || w === "partie" || w === "go" || w === "commence" || w === "commencer" || w === "demarre"){ cmds.push({type:"go"}); continue; }
+    // navigation entre les trous
+    if(w === "trou"){
+      if(n1 === "suivant"){ cmds.push({type:"nexthole"}); i++; continue; }
+      if(n1 === "precedent"){ cmds.push({type:"prevhole"}); i++; continue; }
+      if(isNum(n1)){ cmds.push({type:"gohole", value:parseInt(n1,10)}); i++; continue; }
+      continue;
+    }
+    // bâtons
+    if(w === "driver"){ cmds.push({type:"club", value:"Bois 1"}); continue; }
+    if((w === "bois" || w === "boit" || w === "boire") && isNum(n1) && (n1==="1" || n1==="5")){ cmds.push({type:"club", value:"Bois "+n1}); i++; continue; }
+    if(w === "hybride" || w === "hybrid" || w === "hybrides"){ cmds.push({type:"club", value:"Hybride 3"}); if(n1==="3") i++; continue; }
+    if(FER.test(w) && isNum(n1) && ["5","7","8","9"].indexOf(n1)>=0){ cmds.push({type:"club", value:"Fer "+n1}); i++; continue; }
+    if(w === "pitching" || w === "pw" || w === "pitch" || (w === "p" && n1 === "w")){ cmds.push({type:"club", value:"PW"}); if(w==="p"||n1==="wedge") i++; continue; }
+    if(w === "sw" || w === "sand" || w === "wedge" || (w === "s" && n1 === "w")){
+      var j = i + ((w==="s")?1:0);
+      if(tk[j+1] === "wedge") j++;
+      if(tk[j+1] === "56"){ cmds.push({type:"club", value:"SW56"}); i = j+1; continue; }
+      cmds.push({type:"club", value:"SW"}); i = j; continue;
+    }
+    if(w === "putter" || w === "puteur" || w === "putteur" || w === "poteur"){ cmds.push({type:"club", value:"Putter"}); continue; }
+    // où est tombée la balle
+    if(w === "fairway" || w === "ferway" || w === "allee" || w === "farouet"){ cmds.push({type:"spot", value:"Fairway"}); continue; }
+    if(w === "herbe" || w === "rough" || w === "roff" || w === "longue"){ cmds.push({type:"spot", value:"Herbe longue"}); if(n1==="longue"||n1==="haute") i++; continue; }
+    if(w === "trappe" || w === "bunker" || w === "fosse"){ cmds.push({type:"spot", value:"Trappe de sable"}); if(n1==="de" && tk[i+2]==="sable") i+=2; continue; }
+    if(w === "sable"){ cmds.push({type:"sable"}); continue; } // trappe ou SW selon le moment
+    if(w === "eau" || w === "lac" || w === "etang" || w === "riviere" || w === "ruisseau"){ cmds.push({type:"spot", value:"Eau"}); continue; }
+    if(w === "boise" || w === "foret" || w === "arbres" || w === "bois"){ cmds.push({type:"spot", value:"Boisé"}); continue; }
+    if(w === "frise" || w === "frange" || w === "collet" || w === "collier" || w === "frises"){ cmds.push({type:"spot", value:"Frise du vert"}); continue; }
+    if(w === "vert" || w === "green" || w === "greens"){ cmds.push({type:"green"}); continue; }
+    // distance
+    if((w === "distance" || w === "reste" || w === "restant" || w === "rester" || w === "a") && isNum(n1)){ cmds.push({type:"dist", value:parseInt(n1,10)}); i++; continue; }
+    if(isNum(w)){ cmds.push({type:"num", value:parseInt(w,10)}); continue; }
+    // roulés / fin du trou
+    if(w === "rentre" || w === "rentree" || w === "rentrer" || w === "dedans" || w === "termine" || w === "terminer" || w === "fini"){ cmds.push({type:"holed"}); continue; }
+    if(w === "suivant"){ cmds.push({type:"nexthole"}); continue; }
+    // confirmer / annuler / état
+    if(w === "ok" || w === "okay" || w === "confirme" || w === "confirmer" || w === "valide" || w === "parfait" || w === "correct" || w === "oui" || w === "bon"){ cmds.push({type:"ok"}); continue; }
+    if(w === "annule" || w === "annuler" || w === "efface" || w === "effacer" || w === "oups" || w === "erreur"){ cmds.push({type:"undo"}); continue; }
+    if(w === "repete" || w === "repeter" || w === "statut" || (w === "ou" && n1 === "j")){ cmds.push({type:"status"}); continue; }
+  }
+  return cmds;
+}
+
+// Confirme le coup en cours avec la distance affichée (GPS ou dite). Retourne un message.
+function voiceConfirmPending(){
+  if(!UI.locked) return { ok:true };
+  if(UI.digits === ""){
+    return { err:"Il me manque la distance du coup au "+UI.locked+". Dis reste, puis le nombre de verges" };
+  }
+  UI.awaitingSpot = false;
+  var club = UI.locked, d = UI.digits, spot = UI.spotForShot;
+  App.confirmShotFromSpotScreen();
+  var hd = getHole(ROUND.cur);
+  var last = hd.shots[hd.shots.length-1];
+  var txt = club+" confirmé, "+(last ? (last.before-last.after)+" verges" : "")+(spot ? ", "+spotPlaceLabel(spot) : "");
+  if(hd.onGreen) txt += ", tu es sur le vert";
+  else txt += ", il reste "+d+(last && last.origFeet!=null ? " pieds" : " verges");
+  return { ok:true, say:txt };
+}
+
+function runVoiceCommand(c){
+  var hd = getHole(ROUND.cur);
+  // --- avant le départ ---
+  if(!ROUND.setupConfirmed){
+    if(c.type === "course"){ ROUND.course = c.value; ROUND.holes = {}; saveRound(); return { say:c.value }; }
+    if(c.type === "tee"){ ROUND.tee = c.value; ROUND.holes = {}; saveRound(); return { say:"Départ des "+c.value+"s" }; }
+    if(c.type === "go" || c.type === "ok"){
+      if(!ROUND.course || !ROUND.tee) return { err:"Il me faut le terrain et le départ d'abord" };
+      App.confirmSetup(true);
+      hd = getHole(ROUND.cur);
+      return { say:"C'est parti ! Trou "+ROUND.cur+", par "+hd.par+", "+hd.startDist+" verges" };
+    }
+    if(c.type === "status") return { say:Voice.statusPhrase() };
+    return { err:"Dis d'abord ton terrain et ton départ, puis c'est parti" };
+  }
+  switch(c.type){
+    case "course": case "tee": return { err:"Pour changer de terrain ou de départ, touche « changer » à l'écran" };
+    case "go": return {};
+    case "status": return { say:Voice.statusPhrase() };
+    case "note":
+      if(!hd.shots.length) return { err:"Aucun coup sur ce trou pour y attacher une note" };
+      var s = hd.shots[hd.shots.length-1];
+      s.note = s.note ? s.note+" · "+c.value : c.value;
+      saveRound(); render();
+      return { say:"Note ajoutée" };
+    case "club":
+      if(hd.onGreen) return { err:"Tu es déjà sur le vert — dis la distance en pieds de ton roulé" };
+      var r = voiceConfirmPending();
+      if(r.err) return r;
+      hd = getHole(ROUND.cur);
+      if(hd.onGreen) return { say:(r.say||"")+". "+c.value+" ignoré" };
+      App.pickClub(c.value);
+      App.lockShot();
+      return { say:(r.say ? r.say+". " : "")+c.value };
+    case "sable":
+      if(UI.locked) return runVoiceCommand({ type:"spot", value:"Trappe de sable" });
+      return runVoiceCommand({ type:"club", value:"SW" });
+    case "spot":
+      if(!UI.locked) return { err:"Dis d'abord le bâton que tu viens de frapper" };
+      if(UI.awaitingSpot){ App.chooseSpot(c.value); }
+      else { UI.spotForShot = c.value; render(); }
+      return { say:c.value === "Frise du vert" ? "Frise. Dis reste et la distance en pieds du trou" : c.value, noPrompt:c.value === "Frise du vert" };
+    case "green":
+      if(hd.onGreen) return { say:"Déjà sur le vert" };
+      if(!UI.locked) return { err:"Dis d'abord le bâton du coup qui t'a amené sur le vert" };
+      var club = UI.locked;
+      App.confirmShot(0);
+      return { say:club+" confirmé. Bravo" };
+    case "dist":
+    case "num":
+      if(hd.onGreen){
+        var t = puttTargetIndex(hd);
+        hd.putts[t] = c.value; UI.puttTarget = null; UI.digits = ""; UI.touched = false;
+        saveRound(); render();
+        return { say:(t===0 ? "Premier roulé à " : "Il reste ")+c.value+" pieds" };
+      }
+      if(UI.locked){
+        UI.digits = String(c.value); UI.touched = true; UI.gpsFilled = false;
+        if(UI.awaitingSpot){ UI.awaitingSpot = false; }
+        render();
+        return { say:"Reste "+c.value+(UI.spotForShot==="Frise du vert" ? " pieds" : " verges") };
+      }
+      if(hd.shots.length === 0 && c.type === "dist"){
+        hd.startDist = c.value; saveRound(); render();
+        return { say:"Distance du trou corrigée à "+c.value+" verges" };
+      }
+      return { err:"Dis d'abord le bâton que tu vas frapper" };
+    case "ok":
+      if(UI.locked) return voiceConfirmPending();
+      if(hd.onGreen) return { say:"Dis rentré quand la balle est dans le trou" };
+      return {};
+    case "holed":
+      if(!hd.onGreen) return { err:"Tu n'es pas encore sur le vert" };
+      var done = ROUND.cur;
+      App.registerPutts();
+      var nh = getHole(ROUND.cur);
+      if(ROUND.cur === done) return { say:"Trou "+done+" terminé. C'était le dernier trou, bravo" };
+      return { say:"Trou "+done+" terminé. Trou "+ROUND.cur+", par "+nh.par+", "+nh.startDist+" verges" };
+    case "nexthole":
+      if(hd.onGreen) return runVoiceCommand({ type:"holed" });
+      if(ROUND.cur >= 18) return { err:"C'est déjà le dernier trou" };
+      App.goHole(ROUND.cur+1);
+      var h2 = getHole(ROUND.cur);
+      return { say:"Trou "+ROUND.cur+", par "+h2.par+", "+h2.startDist+" verges" };
+    case "prevhole":
+      if(ROUND.cur <= 1) return { err:"Tu es au premier trou" };
+      App.goHole(ROUND.cur-1);
+      return { say:"Retour au trou "+ROUND.cur };
+    case "gohole":
+      if(c.value < 1 || c.value > 18) return { err:"Trou "+c.value+" inexistant" };
+      App.goHole(c.value);
+      var h3 = getHole(ROUND.cur);
+      if(h3.onGreen) return { say:"Trou "+ROUND.cur+", tu étais sur le vert" };
+      return { say:"Trou "+ROUND.cur+", par "+h3.par+", "+beforeDist(h3)+" verges" };
+    case "undo":
+      App.undoLastShot();
+      return { say:"Dernier coup annulé" };
+  }
+  return {};
+}
+
+document.addEventListener("visibilitychange", function(){
+  if(!document.hidden && isVoiceMode()){
+    Voice.keepScreenOn();
+    if(Voice.handsFree && !Voice.listening) Voice.restartSoon();
+  }
+});
 
 document.addEventListener("fullscreenchange", render);
 document.addEventListener("webkitfullscreenchange", render);

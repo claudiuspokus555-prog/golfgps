@@ -592,6 +592,7 @@ var App = {
     var shot = { club:club, before:before, after:val };
     if(spot) shot.spot = spot;
     if(origFeet!=null) shot.origFeet = origFeet;
+    if(typeof Voice !== "undefined" && Voice.pendingNote){ shot.note = Voice.pendingNote; Voice.pendingNote = ""; }
     hd.shots.push(shot);
     UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null;
     if(val===0){ hd.onGreen = true; UI.puttTarget=null; autoCapturePinIfPossible(); }
@@ -1134,6 +1135,13 @@ function exportText(){
   Object.keys(agg).forEach(function(c){
     lines.push(c+" : "+agg[c].n+" coups, moyenne "+Math.round(agg[c].sum/agg[c].n)+"v");
   });
+  if(ROUND.voiceLog && ROUND.voiceLog.length){
+    lines.push("");
+    lines.push("--- Journal vocal (tout ce qui a été dit) ---");
+    ROUND.voiceLog.forEach(function(e){
+      lines.push(e.t+" "+(e.h ? "Trou "+e.h : "Départ")+" "+(e.ok ? "✓" : "?")+" « "+e.txt+" »"+(e.q ? "   (question : "+e.q+")" : ""));
+    });
+  }
   return lines.join("\n");
 }
 
@@ -1278,6 +1286,33 @@ var Voice = {
   },
 
   // ---------- compréhension de la phrase ----------
+  // Tout ce qui est dit est gardé dans le journal (exporté avec la ronde).
+  // Une phrase non comprise n'est jamais redemandée : elle est notée sur le coup
+  // en cours et on attend la suite ; « suivant » fait passer à l'étape suivante.
+  pendingNote:"",
+  log:function(text, ok){
+    if(!ROUND.voiceLog) ROUND.voiceLog = [];
+    var d = new Date();
+    ROUND.voiceLog.push({
+      t: String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"),
+      h: ROUND.setupConfirmed ? ROUND.cur : 0,
+      q: this.nextPrompt(),
+      txt: text,
+      ok: ok
+    });
+    saveRound();
+  },
+  keepAsNote:function(text){
+    if(!ROUND.setupConfirmed) return;
+    var hd = getHole(ROUND.cur);
+    if(hd.onGreen && hd.shots.length){
+      var s = hd.shots[hd.shots.length-1];
+      s.note = s.note ? s.note+" · "+text : text;
+      saveRound();
+    } else {
+      this.pendingNote = this.pendingNote ? this.pendingNote+" · "+text : text;
+    }
+  },
   handle:function(alts){
     var best = null;
     for(var i=0;i<alts.length;i++){
@@ -1285,10 +1320,18 @@ var Voice = {
       if(cmds.length){ best = { text:alts[i], cmds:cmds }; break; }
     }
     if(!best){
-      this.setReply("Je n'ai pas compris « "+alts[0]+" ». Exemples : bois 1, fairway, reste 150, vert.", true);
+      this.heard = alts[0];
+      this.log(alts[0], false);
+      if(!ROUND.setupConfirmed){
+        this.setReply("Dis ton terrain et ton départ, par exemple : Cacouna, blancs, c'est parti", true);
+        return;
+      }
+      this.keepAsNote(alts[0]);
+      this.setReply("Noté. Dis suivant pour passer à l'étape suivante", false);
       return;
     }
     this.heard = best.text;
+    this.log(best.text, true);
     var said = [], err = null, noPrompt = false;
     for(var j=0;j<best.cmds.length;j++){
       var r = runVoiceCommand(best.cmds[j]);
@@ -1296,7 +1339,11 @@ var Voice = {
       if(r && r.say) said.push(r.say);
       noPrompt = !!(r && r.noPrompt);
     }
-    if(err){ this.setReply(said.concat([err]).join(". ")+" (j'ai entendu : « "+best.text+" »)", true); return; }
+    if(err){
+      this.keepAsNote(best.text);
+      this.setReply(said.concat([err, "Noté quand même, dis suivant pour continuer"]).join(". "), true);
+      return;
+    }
     var next = noPrompt ? "" : this.nextPrompt();
     this.setReply(said.concat(next ? [next] : []).join(". "), false);
   },
@@ -1365,6 +1412,9 @@ function normalizeVoice(txt){
 // Transforme une phrase en liste de commandes : {type, value}
 function parseVoice(txt){
   var tk = normalizeVoice(txt), cmds = [];
+  // Une longue phrase est une discussion, pas une commande : elle va au journal comme note
+  // (sauf « note ... » explicite). Les vraies commandes sont courtes : « fer 7 fairway reste 150 ».
+  if(tk.length > 8 && tk[0] !== "note") return cmds;
   var isNum = function(x){ return x!==undefined && /^\d+$/.test(x); };
   var FER = /^(fer|faire|fair|ferre|fers|ferres)$/;
   for(var i=0;i<tk.length;i++){
@@ -1408,8 +1458,8 @@ function parseVoice(txt){
     }
     if(w === "putter" || w === "puteur" || w === "putteur" || w === "poteur"){ cmds.push({type:"club", value:"Putter"}); continue; }
     // où est tombée la balle
-    if(w === "fairway" || w === "ferway" || w === "allee" || w === "farouet"){ cmds.push({type:"spot", value:"Fairway"}); continue; }
-    if(w === "herbe" || w === "rough" || w === "roff" || w === "longue"){ cmds.push({type:"spot", value:"Herbe longue"}); if(n1==="longue"||n1==="haute") i++; continue; }
+    if(w === "fairway" || w === "ferway" || w === "farouet" || w === "fairways"){ cmds.push({type:"spot", value:"Fairway"}); continue; }
+    if(w === "herbe" || w === "rough" || w === "roff"){ cmds.push({type:"spot", value:"Herbe longue"}); if(n1==="longue"||n1==="haute") i++; continue; }
     if(w === "trappe" || w === "bunker" || w === "fosse"){ cmds.push({type:"spot", value:"Trappe de sable"}); if(n1==="de" && tk[i+2]==="sable") i+=2; continue; }
     if(w === "sable"){ cmds.push({type:"sable"}); continue; } // trappe ou SW selon le moment
     if(w === "eau" || w === "lac" || w === "etang" || w === "riviere" || w === "ruisseau"){ cmds.push({type:"spot", value:"Eau"}); continue; }
@@ -1421,9 +1471,9 @@ function parseVoice(txt){
     if(isNum(w)){ cmds.push({type:"num", value:parseInt(w,10)}); continue; }
     // roulés / fin du trou
     if(w === "rentre" || w === "rentree" || w === "rentrer" || w === "dedans" || w === "termine" || w === "terminer" || w === "fini"){ cmds.push({type:"holed"}); continue; }
-    if(w === "suivant"){ cmds.push({type:"nexthole"}); continue; }
+    if(w === "suivant" || w === "suivante" || w === "continue" || w === "continuer"){ cmds.push({type:"step"}); continue; }
     // confirmer / annuler / état
-    if(w === "ok" || w === "okay" || w === "confirme" || w === "confirmer" || w === "valide" || w === "parfait" || w === "correct" || w === "oui" || w === "bon"){ cmds.push({type:"ok"}); continue; }
+    if(w === "ok" || w === "okay" || w === "confirme" || w === "confirmer" || w === "valide"){ cmds.push({type:"ok"}); continue; }
     if(w === "annule" || w === "annuler" || w === "efface" || w === "effacer" || w === "oups" || w === "erreur"){ cmds.push({type:"undo"}); continue; }
     if(w === "repete" || w === "repeter" || w === "statut" || (w === "ou" && n1 === "j")){ cmds.push({type:"status"}); continue; }
   }
@@ -1481,6 +1531,20 @@ function runVoiceCommand(c){
       App.pickClub(c.value);
       App.lockShot();
       return { say:(r.say ? r.say+". " : "")+c.value };
+    case "step":
+      // Passer à l'étape suivante, peu importe ce qui a été compris avant
+      if(hd.onGreen) return runVoiceCommand({ type:"holed" });
+      if(!UI.locked){
+        App.pickClub("À préciser");
+        App.lockShot();
+        return { say:"Coup noté, bâton à préciser plus tard" };
+      }
+      if(UI.awaitingSpot){
+        UI.awaitingSpot = false; UI.spotForShot = null; render();
+        updateSuggestion();
+        return { say:"Position sautée" };
+      }
+      return voiceConfirmPending();
     case "boisAlone":
       // « bois » tout seul : le boisé si un coup est en cours, sinon le bâton
       if(UI.locked) return runVoiceCommand({ type:"spot", value:"Boisé" });

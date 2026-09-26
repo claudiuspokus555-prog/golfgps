@@ -288,14 +288,26 @@ var PIN_SEED = {
   }catch(e){}
 })();
 
-var GPS = { lastFix:null, watching:false, error:null, watchId:null };
+var GPS = { lastFix:null, watching:false, error:null, watchId:null, safetyTimer:null };
+var GPS_GOOD_ACCURACY_M = 20;   // GPS sur demande : position assez précise -> on coupe le GPS tout de suite
+var GPS_MAX_AWAKE_MS = 45000;   // GPS sur demande : jamais plus de 45 s allumé d'affilée
 function onGeoSuccess(pos){
-  GPS.lastFix = { lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy };
+  var fix = { lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy };
+  // en mode sur demande, garder la meilleure position reçue pendant le réveil
+  if(!(isGpsOnDemand() && GPS.lastFix && GPS.lastFix.accuracy!=null && fix.accuracy!=null && fix.accuracy > GPS.lastFix.accuracy)) GPS.lastFix = fix;
   GPS.error = null;
   if(UI.pinAfterFix){ UI.pinAfterFix = false; savePinGPS(ROUND.course, ROUND.cur, GPS.lastFix, "gps-capture"); gpsNap(); render(); return; }
   var hd = getHole(ROUND.cur);
   if(hd.shots.length===0 && !hd.teeGPS){ hd.teeGPS = GPS.lastFix; saveRound(); }
   updateSuggestion();
+  // Distance obtenue : on éteint le GPS immédiatement (la distance affichée reste)
+  if(isGpsOnDemand() && GPS.lastFix.accuracy!=null && GPS.lastFix.accuracy <= GPS_GOOD_ACCURACY_M){ gpsSleepKeepFix(); render(); }
+}
+// Coupe le GPS sans oublier la position qu'on vient de lire (sert à la distance affichée).
+function gpsSleepKeepFix(){
+  if(GPS.safetyTimer){ clearTimeout(GPS.safetyTimer); GPS.safetyTimer = null; }
+  if(GPS.watchId!=null){ try{ navigator.geolocation.clearWatch(GPS.watchId); }catch(e){} }
+  GPS.watchId = null; GPS.watching = false;
 }
 function onGeoError(err){
   var code = err && err.code;
@@ -312,12 +324,22 @@ function startGPSWatch(){
   if(!("geolocation" in navigator)){ GPS.error = "Géolocalisation non supportée par ce navigateur"; render(); return; }
   GPS.watching = true;
   GPS.watchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoError, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+  if(isGpsOnDemand()){
+    if(GPS.safetyTimer) clearTimeout(GPS.safetyTimer);
+    GPS.safetyTimer = setTimeout(function(){
+      GPS.safetyTimer = null;
+      if(!isGpsOnDemand() || !GPS.watching) return;
+      gpsSleepKeepFix();
+      if(!GPS.lastFix) GPS.error = "Pas de signal GPS après 45 s — GPS remis en veille pour la batterie. Tape la distance ou réessaie.";
+      render();
+    }, GPS_MAX_AWAKE_MS);
+  }
 }
 // Version « GPS sur demande » : le GPS dort entre les coups pour économiser la batterie.
 // On oublie la dernière position en l'endormant, pour ne jamais proposer une distance périmée.
 function stopGPSWatch(){
-  if(GPS.watchId!=null){ try{ navigator.geolocation.clearWatch(GPS.watchId); }catch(e){} }
-  GPS.watchId = null; GPS.watching = false; GPS.lastFix = null;
+  gpsSleepKeepFix();
+  GPS.lastFix = null;
 }
 function gpsNap(){ if(isGpsOnDemand()) stopGPSWatch(); }
 var MAX_REALISTIC_VERGES = 700; // au-delà, le GPS n'est clairement pas sur ce terrain (ex. test à la maison)
@@ -561,7 +583,7 @@ var App = {
     render();
     updateSuggestion();
   },
-  cancelLock:function(){ UI.locked=null; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null; render(); },
+  cancelLock:function(){ UI.locked=null; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null; gpsNap(); render(); },
   chooseSpot:function(spot){
     UI.spotForShot = spot; UI.awaitingSpot = false; UI.digits=""; UI.touched=false;
     render();
@@ -636,6 +658,7 @@ var App = {
       // Un coup est verrouillé/en cours mais pas encore confirmé — on annule seulement ça,
       // sans toucher aux coups déjà confirmés dans hd.shots.
       UI.pendingClub=null; UI.locked=null; UI.awaitingSpot=false; UI.spotForShot=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.puttTarget=null;
+      gpsNap();
       render();
       return;
     }
@@ -648,6 +671,7 @@ var App = {
       return;
     }
     UI.pendingClub=null; UI.locked=null; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.puttTarget=null;
+    gpsNap();
     saveRound(); render();
   },
   setScore:function(v){
@@ -663,6 +687,7 @@ var App = {
   },
   resetRound:function(){
     Voice.stop();
+    stopGPSWatch();
     ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{}, mode:null, date:null };
     UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
     saveRound(); render();
@@ -811,6 +836,9 @@ function keypadHTML(defaultVal, showDisplay){
 }
 
 function gpsStatusHTML(hd){
+  if(isGpsOnDemand() && GPS.watching && !UI.gpsFilled && !GPS.error){
+    return "<div class='gpsnote'>&#128225; GPS allumé — recherche de ta position (il s'éteint tout seul dès qu'il l'a, maximum 45 s)</div>";
+  }
   if(isGpsOnDemand() && !GPS.watching && !UI.gpsFilled){
     return "<button class='shotbtn' style='background:var(--accent)' onclick='App.wakeGPS()'>&#128205; Activer le GPS</button>" +
       "<div class='gpsnote'>&#128267; GPS en veille pour ménager la batterie — touche le bouton une fois arrivé à ta balle (ou tape la distance)</div>";

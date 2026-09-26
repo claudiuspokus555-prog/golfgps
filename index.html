@@ -64,6 +64,9 @@
   .greenbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--accent); color:var(--accent); border-radius:10px; padding:10px 2px; font-weight:800; font-size:.95rem; }
   .greenbtn:active{ background:var(--accent); color:var(--accent-text); }
   .greenbtn[disabled]{ opacity:.35; pointer-events:none; }
+  /* Bouton « Sur le vert » mis en évidence en haut quand il restait moins de 100 v avant le coup */
+  .greenbtn.bigtop{ background:#F2B705; color:#1A1A1A; border:3px solid #FFD84D; font-size:1.45rem; font-weight:900; padding:16px 4px; margin:4px 0 10px; box-shadow:0 3px 10px rgba(0,0,0,.35); }
+  .greenbtn.bigtop:active{ background:#FFD84D; color:#1A1A1A; }
   .okbtn{ width:100%; background:var(--accent); color:var(--accent-text); border:none; border-radius:12px; padding:13px; font-weight:900; font-size:1.1rem; }
   .okbtn[disabled]{ opacity:.4; pointer-events:none; }
 
@@ -920,23 +923,29 @@ function render(){
       html += "</div>";
       html += "<button class='shotbtn'"+(!effective?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
     } else if(UI.awaitingSpot){
+      var nearGreenA = before < 100;
+      if(nearGreenA) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>";
       html += "<div class='lead' style='text-align:center'>Où est tombée votre balle ? <button class='linklike' onclick='App.cancelLock()'>changer de bâton</button></div>";
       html += "<div class='spotgrid'>";
       [["Fairway","&#128994; Fairway"],["Herbe longue","&#127806; Herbe longue"],["Trappe de sable","&#127958; Sable"],["Eau","&#128167; Eau"],["Boisé","&#127795; Boisé"],["Frise du vert","&#127793; Frise"]].forEach(function(p){
         html += "<button class='clubbtn' onclick='App.chooseSpot(\""+p[0]+"\")'>"+p[1]+"</button>";
       });
       html += "</div>";
-      html += "<button class='greenbtn' style='margin-top:8px' onclick='App.confirmShot(0)'>&#9971; Vert (sur le vert)</button>";
+      if(!nearGreenA) html += "<button class='greenbtn' style='margin-top:8px' onclick='App.confirmShot(0)'>&#9971; Vert (sur le vert)</button>";
     } else {
       var spotPhrase = UI.spotForShot ? " depuis "+spotPlaceLabel(UI.spotForShot) : "";
       var isFrise = UI.spotForShot === "Frise du vert";
       var targetWord = isFrise ? "trou" : "vert";
       var distPhrase = isFrise ? "<b>DISTANCE EN PIEDS</b>" : "distance";
+      // Moins de 100 v à faire avant ce coup : le bouton « Sur le vert » monte en haut, en gros et en jaune
+      var greenAllowed = (ROUND.mode === "allegee" || isGpsOnDemand() || isVoiceMode());
+      var nearGreenB = greenAllowed && before < 100;
+      if(nearGreenB) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>";
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle "+distPhrase+" du "+targetWord+" ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
       html += "<button class='okbtn'"+(UI.digits===""?" disabled":"")+" onclick='App.confirmShotFromSpotScreen()'>&#9989; Confirmer la distance</button>";
-      if(ROUND.mode === "allegee" || isGpsOnDemand() || isVoiceMode()){
+      if(greenAllowed && !nearGreenB){
         html += "<button class='greenbtn' onclick='App.confirmShot(0)'>&#9971; Sur le vert</button>";
       }
     }

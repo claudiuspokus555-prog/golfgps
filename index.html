@@ -579,7 +579,7 @@ var App = {
     var club = UI.pendingClub || defaultClubFor(hd);
     if(!club) return;
     UI.locked = club; UI.digits=""; UI.touched=false; UI.gpsFilled=false; UI.awaitingSpot=!skipsSpotQuestion(); UI.spotForShot=null;
-    gpsNap(); // la balle est frappée : le GPS dort jusqu'au prochain « Activer le GPS »
+    gpsNap(); // la balle est frappée : le GPS dort jusqu'au bouton « rendu à votre balle »
     if(hd.shots.length===0 && !hd.teeGPS && GPS.lastFix){ hd.teeGPS = GPS.lastFix; saveRound(); }
     render();
     updateSuggestion();
@@ -841,8 +841,8 @@ function gpsStatusHTML(hd){
     return "<div class='gpsnote'>&#128225; GPS allumé — recherche de ta position (il s'éteint tout seul dès qu'il l'a, maximum 45 s)</div>";
   }
   if(isGpsOnDemand() && !GPS.watching && !UI.gpsFilled){
-    return "<button class='shotbtn' style='background:var(--accent)' onclick='App.wakeGPS()'>&#128205; Activer le GPS</button>" +
-      "<div class='gpsnote'>&#128267; GPS en veille pour ménager la batterie — touche le bouton une fois arrivé à ta balle (ou tape la distance)</div>";
+    return "<button class='shotbtn' style='background:var(--accent);white-space:normal;line-height:1.25' onclick='App.wakeGPS()'>&#128205; Cliquez quand vous serez rendu à votre balle</button>" +
+      "<div class='gpsnote'>&#128267; GPS éteint pendant que tu marches — il s'allume seulement quand tu touches ce bouton, arrivé à ta balle (ou tape la distance)</div>";
   }
   if(UI.gpsFilled){
     var acc = (GPS.lastFix && GPS.lastFix.accuracy) ? " (±"+Math.round(GPS.lastFix.accuracy)+"m)" : "";
@@ -876,7 +876,7 @@ function render(){
     html += "<div class='lead' style='text-align:center;font-weight:900;font-size:1.05rem;color:var(--text)'>Quelle version voulez-vous utiliser aujourd'hui ?</div>";
     html += "<button class='modebtn' onclick='App.chooseMode(\"complete\")'><span class='mt'>&#9997;&#65039; Complète</span><span class='md'>La version actuelle, sans changement : bâton, où est tombée la balle, distance.</span></button>";
     html += "<button class='modebtn' onclick='App.chooseMode(\"allegee\")'><span class='mt'>&#9889; Allégée</span><span class='md'>Moins de clics : pas de question « où est tombée votre balle ». Bâton &rarr; Je Frappe &rarr; distance.</span></button>";
-    html += "<button class='modebtn' onclick='App.chooseMode(\"gpsdemande\")'><span class='mt'>&#128267; GPS sur demande</span><span class='md'>Comme l'Allégée, mais le GPS dort entre les coups pour ménager la batterie. Arrivé à ta balle, touche « Activer le GPS » pour avoir la distance.</span></button>";
+    html += "<button class='modebtn' onclick='App.chooseMode(\"gpsdemande\")'><span class='mt'>&#128267; GPS sur demande</span><span class='md'>Comme l'Allégée, mais le GPS dort entre les coups pour ménager la batterie. Arrivé à ta balle, touche « Cliquez quand vous serez rendu à votre balle » pour avoir la distance.</span></button>";
     html += "<button class='modebtn voice' onclick='App.chooseMode(\"parlee\")'><span class='mt'>&#127908; Parlée</span><span class='md'>Tu parles au cell : « Cacouna, blancs, c'est parti », « cobra », « fairway », « fer 7 »&hellip; L'écran normal reste utilisable si tu préfères toucher.</span></button>";
     document.getElementById("app").innerHTML = html;
     document.body.classList.remove("voice-on");

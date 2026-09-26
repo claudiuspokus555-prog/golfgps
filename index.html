@@ -168,13 +168,13 @@ var COURSES = {
   }
 };
 var DEFAULT_COURSE = "Golf Cacouna";
-var CLUBS=["Bois 1","Hybride 3","Bois 5","Fer 5","Fer 7","Fer 8","Fer 9","PW","SW","SW56"];
+var CLUBS=["Cobra1","Hybride 3","Bois 5","Fer 5","Fer 7","Fer 8","Fer 9","PW","SW","SW56"];
 var CLUB_SHORT={"Hybride 3":"Hybr 3"};
 function clubLabel(c){ return CLUB_SHORT[c] || c; }
 function clubsForHole(hd){
   var lastShot = hd.shots[hd.shots.length-1];
   if(lastShot && lastShot.spot === "Frise du vert"){
-    return ["Putter"].concat(CLUBS.filter(function(c){ return c!=="Bois 1" && c!=="Bois 5"; }));
+    return ["Putter"].concat(CLUBS.filter(function(c){ return c!=="Cobra1" && c!=="Bois 5"; }));
   }
   return CLUBS;
 }
@@ -482,9 +482,9 @@ function defaultClubFor(hd){
   var before = beforeDist(hd);
   var lastShot = hd.shots[hd.shots.length-1];
   if(lastShot && lastShot.spot === "Frise du vert") return "Putter";
-  if(hd.shots.length===0 && before>200) return "Bois 1";
+  if(hd.shots.length===0 && before>200) return "Cobra1";
   if(before>=100 && before<=120) return "Fer 7";
-  if(hd.shots.length>0 && hd.shots[hd.shots.length-1].club==="Bois 1") return "Hybride 3";
+  if(hd.shots.length>0 && hd.shots[hd.shots.length-1].club==="Cobra1") return "Hybride 3";
   if(before>135) return "Bois 5";
   return null;
 }
@@ -845,7 +845,7 @@ function render(){
     html += "<button class='modebtn' onclick='App.chooseMode(\"complete\")'><span class='mt'>&#9997;&#65039; Complète</span><span class='md'>La version actuelle, sans changement : bâton, où est tombée la balle, distance.</span></button>";
     html += "<button class='modebtn' onclick='App.chooseMode(\"allegee\")'><span class='mt'>&#9889; Allégée</span><span class='md'>Moins de clics : pas de question « où est tombée votre balle ». Bâton &rarr; Je Frappe &rarr; distance.</span></button>";
     html += "<button class='modebtn' onclick='App.chooseMode(\"gpsdemande\")'><span class='mt'>&#128267; GPS sur demande</span><span class='md'>Comme l'Allégée, mais le GPS dort entre les coups pour ménager la batterie. Arrivé à ta balle, touche « Activer le GPS » pour avoir la distance.</span></button>";
-    html += "<button class='modebtn voice' onclick='App.chooseMode(\"parlee\")'><span class='mt'>&#127908; Parlée</span><span class='md'>Tu parles au cell : « Cacouna, blancs, c'est parti », « bois 1 », « fairway », « fer 7 »&hellip; L'écran normal reste utilisable si tu préfères toucher.</span></button>";
+    html += "<button class='modebtn voice' onclick='App.chooseMode(\"parlee\")'><span class='mt'>&#127908; Parlée</span><span class='md'>Tu parles au cell : « Cacouna, blancs, c'est parti », « cobra », « fairway », « fer 7 »&hellip; L'écran normal reste utilisable si tu préfères toucher.</span></button>";
     document.getElementById("app").innerHTML = html;
     document.body.classList.remove("voice-on");
     return;
@@ -1460,13 +1460,19 @@ function parseVoice(txt){
       continue;
     }
     // bâtons
-    if(w === "driver"){ cmds.push({type:"club", value:"Bois 1"}); continue; }
+    if(w === "driver"){ cmds.push({type:"club", value:"Cobra1"}); continue; }
+    // « cobra », « cobra 1 », « cobra un » = le nouveau driver (remplace le Bois 1)
+    if(w === "cobra" || w === "cobra1" || w === "cobras" || w === "copra" || w === "kobra"){
+      cmds.push({type:"club", value:"Cobra1"});
+      if(n1==="1" || n1==="in" || n1==="hein" || n1==="un") i++;
+      continue;
+    }
     if(w === "bois" || w === "boit" || w === "boire" || w === "boa" || w === "bo"){
       // « bois 1 », « bois numéro 1 », « bois un/hein/in », « bois cinq/saint/sain »
       var k = i+1;
       while(["numero","no","le","#","de"].indexOf(tk[k])>=0) k++;
       var nx = tk[k];
-      if(nx==="1" || nx==="in" || nx==="hein" || nx==="1er" || nx==="premier"){ cmds.push({type:"club", value:"Bois 1"}); i = k; continue; }
+      if(nx==="1" || nx==="in" || nx==="hein" || nx==="1er" || nx==="premier"){ cmds.push({type:"club", value:"Cobra1"}); i = k; continue; }
       if(nx==="5" || nx==="saint" || nx==="sain" || nx==="sein" || nx==="sink" || nx==="seing"){ cmds.push({type:"club", value:"Bois 5"}); i = k; continue; }
       if(w === "bois"){ cmds.push({type:"boisAlone"}); continue; }
       continue;
@@ -1572,8 +1578,8 @@ function runVoiceCommand(c){
     case "boisAlone":
       // « bois » tout seul : le boisé si un coup est en cours, sinon le bâton
       if(UI.locked) return runVoiceCommand({ type:"spot", value:"Boisé" });
-      if(hd.shots.length === 0) return runVoiceCommand({ type:"club", value:"Bois 1" });
-      return { err:"Bois 1 ou bois 5 ?" };
+      if(hd.shots.length === 0) return runVoiceCommand({ type:"club", value:"Cobra1" });
+      return { err:"Cobra ou bois 5 ?" };
     case "sable":
       if(UI.locked) return runVoiceCommand({ type:"spot", value:"Trappe de sable" });
       return runVoiceCommand({ type:"club", value:"SW" });

@@ -64,7 +64,7 @@
   .greenbtn{ width:100%; white-space:nowrap; background:none; border:2px dashed var(--accent); color:var(--accent); border-radius:10px; padding:10px 2px; font-weight:800; font-size:.95rem; }
   .greenbtn:active{ background:var(--accent); color:var(--accent-text); }
   .greenbtn[disabled]{ opacity:.35; pointer-events:none; }
-  /* Bouton « Sur le vert » mis en évidence en haut quand il restait moins de 150 v avant le coup (GREEN_BTN_MAX_V) */
+  /* Bouton « Sur le vert » mis en évidence en haut quand il restait 125 v ou moins avant le coup (GREEN_BTN_MAX_V), dans toutes les versions */
   .greenbtn.bigtop{ background:#F2B705; color:#1A1A1A; border:3px solid #FFD84D; font-size:1.45rem; font-weight:900; padding:16px 4px; margin:4px 0 10px; box-shadow:0 3px 10px rgba(0,0,0,.35); }
   .greenbtn.bigtop:active{ background:#FFD84D; color:#1A1A1A; }
   .okbtn{ width:100%; background:var(--accent); color:var(--accent-text); border:none; border-radius:12px; padding:13px; font-weight:900; font-size:1.1rem; }
@@ -342,7 +342,7 @@ function stopGPSWatch(){
   GPS.lastFix = null;
 }
 function gpsNap(){ if(isGpsOnDemand()) stopGPSWatch(); }
-var GREEN_BTN_MAX_V = 150; // gros bouton jaune « SUR LE VERT » en haut quand il reste 150 v ou moins avant le coup
+var GREEN_BTN_MAX_V = 125; // gros bouton jaune « SUR LE VERT » en haut quand il reste 125 v ou moins avant le coup (toutes les versions)
 var MAX_REALISTIC_VERGES = 700; // au-delà, le GPS n'est clairement pas sur ce terrain (ex. test à la maison)
 function rawSuggestedRemaining(hd){
   if(!GPS.lastFix) return null;
@@ -967,9 +967,9 @@ function render(){
       var isFrise = UI.spotForShot === "Frise du vert";
       var targetWord = isFrise ? "trou" : "vert";
       var distPhrase = isFrise ? "<b>DISTANCE EN PIEDS</b>" : "distance";
-      // Moins de GREEN_BTN_MAX_V (150 v) à faire avant ce coup : le bouton « Sur le vert » monte en haut, en gros et en jaune
+      // GREEN_BTN_MAX_V (125 v) ou moins à faire avant ce coup : le bouton « Sur le vert » monte en haut, en gros et en jaune
       var greenAllowed = (ROUND.mode === "allegee" || isGpsOnDemand() || isVoiceMode());
-      var nearGreenB = greenAllowed && before <= GREEN_BTN_MAX_V;
+      var nearGreenB = before <= GREEN_BTN_MAX_V; // gros bouton dans toutes les versions, y compris Complète
       if(nearGreenB) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>";
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle "+distPhrase+" du "+targetWord+" ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
       html += gpsStatusHTML(hd);

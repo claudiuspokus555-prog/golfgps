@@ -291,7 +291,12 @@ var PIN_SEED = {
 var GPS = { lastFix:null, watching:false, error:null, watchId:null, safetyTimer:null };
 var GPS_GOOD_ACCURACY_M = 20;   // GPS sur demande : position assez précise -> on coupe le GPS tout de suite
 var GPS_MAX_AWAKE_MS = 45000;   // GPS sur demande : jamais plus de 45 s allumé d'affilée
+var GPS_MAX_FIX_AGE_MS = 15000;   // une position plus vieille que ça est périmée (ex. celle du départ, gardée en cache par le téléphone)
+var GPS_MAX_SUGGEST_ACC_M = 35;   // en dessous de cette précision seulement, on propose une distance
 function onGeoSuccess(pos){
+  // [fix 2026-10-01] Trou 7 : le téléphone a redonné la position du DÉPART (cache) -> « frappe de 5 v, reste 391 v ».
+  // On jette toute position périmée.
+  if(pos.timestamp && (Date.now() - pos.timestamp) > GPS_MAX_FIX_AGE_MS) return;
   var fix = { lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy };
   // en mode sur demande, garder la meilleure position reçue pendant le réveil
   if(!(isGpsOnDemand() && GPS.lastFix && GPS.lastFix.accuracy!=null && fix.accuracy!=null && fix.accuracy > GPS.lastFix.accuracy)) GPS.lastFix = fix;
@@ -299,7 +304,7 @@ function onGeoSuccess(pos){
   if(UI.pinAfterFix){ UI.pinAfterFix = false; savePinGPS(ROUND.course, ROUND.cur, GPS.lastFix, "gps-capture"); gpsNap(); render(); return; }
   var hd = getHole(ROUND.cur);
   if(hd.shots.length===0 && !hd.teeGPS){ hd.teeGPS = GPS.lastFix; saveRound(); }
-  updateSuggestion();
+  if(GPS.lastFix.accuracy==null || GPS.lastFix.accuracy <= GPS_MAX_SUGGEST_ACC_M) updateSuggestion();
   // Distance obtenue : on éteint le GPS immédiatement (la distance affichée reste)
   if(isGpsOnDemand() && GPS.lastFix.accuracy!=null && GPS.lastFix.accuracy <= GPS_GOOD_ACCURACY_M){ gpsSleepKeepFix(); render(); }
 }
@@ -397,6 +402,7 @@ function startVoiceNote(hole, shotIdx){
   rec.continuous = true;
   rec.interimResults = true;
   var finalText = "";
+  var finalParts = [];
   VoiceNote.active = true;
   VoiceNote.hole = hole;
   VoiceNote.shotIdx = shotIdx;
@@ -409,9 +415,14 @@ function startVoiceNote(hole, shotIdx){
   rec.onresult = function(e){
     var interim = "";
     for(var i=e.resultIndex; i<e.results.length; i++){
-      var t = e.results[i][0].transcript;
-      if(e.results[i].isFinal) finalText += t + " ";
-      else interim += t;
+      var t = (e.results[i][0].transcript || "").trim();
+      if(e.results[i].isFinal){
+        // [fix 2026-10-01] Chrome Android renvoie la phrase CUMULÉE à chaque résultat : on remplace au lieu d'ajouter.
+        if(finalParts.length && t.indexOf(finalParts[finalParts.length-1]) === 0) finalParts[finalParts.length-1] = t;
+        else if(finalParts.length && finalParts[finalParts.length-1].indexOf(t) === 0) { /* déjà inclus */ }
+        else if(t) finalParts.push(t);
+        finalText = finalParts.join(" ") + " ";
+      } else interim = t;
     }
     VoiceNote.interim = interim;
     resetSilenceTimer();
@@ -430,7 +441,8 @@ function startVoiceNote(hole, shotIdx){
   rec.onend = function(){
     if(VoiceNote.silenceTimer) clearTimeout(VoiceNote.silenceTimer);
     var hd = ROUND.holes[hole];
-    var text = (finalText + VoiceNote.interim).trim();
+    var text = (finalParts.length && VoiceNote.interim && VoiceNote.interim.indexOf(finalParts[finalParts.length-1]) === 0) ? VoiceNote.interim.trim() : (finalText + VoiceNote.interim).trim();
+    if(text.length > 400) text = text.slice(-400);
     if(hd && hd.shots[shotIdx] && text){
       hd.shots[shotIdx].note = text;
       saveRound();
@@ -632,6 +644,12 @@ var App = {
     var before = beforeDist(hd);
     var shown = UI.touched ? UI.digits : "";
     var val = (after!==undefined) ? after : (shown===""?0:parseInt(shown,10));
+    // [fix 2026-10-01] Garde-fou : un gros bâton ne frappe pas 5 verges. Si la distance calculée est
+    // absurdement courte, on demande confirmation au lieu de l'enregistrer en silence.
+    var minPlausible = { "Cobra1":40, "Bois 1":40, "Bois 5":30, "Hybride 3":30, "Fer 7":15, "Fer 9":10 }[club];
+    if(minPlausible && before!=null && val>0 && (before - val) < minPlausible && !spot){
+      if(!confirm("Frappe de seulement "+Math.max(0,before-val)+" v avec "+club+" (reste "+val+" v). C'est bien ça ? OK = garder tel quel. Annuler = corriger la distance restante.")) return;
+    }
     var shot = { club:club, before:before, after:val };
     if(spot) shot.spot = spot;
     if(origFeet!=null) shot.origFeet = origFeet;

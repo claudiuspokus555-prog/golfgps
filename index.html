@@ -144,6 +144,19 @@
   .bigmic.listening{ background:var(--danger); }
   .voiceopts{ display:flex; justify-content:space-between; gap:6px; }
   .voiceopts button{ flex:1; font-size:.72rem; padding:4px; }
+  .recobtn{ margin-top:6px; font-weight:800; }
+  .recopanel{ border:2px solid var(--accent); border-radius:12px; padding:9px; display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+  .recohead{ text-align:center; font-size:1rem; }
+  .recohead b{ color:var(--danger); font-size:1.25rem; }
+  .recorow{ display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--bg); border:1.75px solid var(--border); border-radius:10px; padding:10px 12px; color:var(--text); font-size:.95rem; }
+  .recorow .rname{ font-weight:900; font-size:1.1rem; }
+  .recorow .rinfo{ font-weight:700; color:var(--text-muted); font-size:.85rem; }
+  .recorow.top{ background:var(--accent); border-color:var(--accent); }
+  .recorow.top .rname, .recorow.top .rinfo{ color:var(--accent-text); }
+  .cumgrid{ display:grid; grid-template-columns:1.3fr 1fr 1.2fr 1.2fr 1fr; gap:4px; text-align:center; font-size:.85rem; font-weight:700; padding:5px 0; border-bottom:1px solid var(--border); }
+  .cumgrid.cumhead{ font-size:.68rem; text-transform:uppercase; color:var(--text-muted); font-weight:900; }
+  .cumgrid .cn{ text-align:left; font-weight:900; color:var(--accent); }
+  .cumgrid .cm{ color:var(--danger); font-weight:900; }
 </style>
 
 <div id="app"></div>
@@ -706,13 +719,16 @@ var App = {
     UI.confirmingReset = false; render();
   },
   resetRound:function(){
+    archiveCurrentRound();
     Voice.stop();
     stopGPSWatch();
     ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{}, mode:null, date:null };
     UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
     saveRound(); render();
   },
-  toggleExport:function(){ UI.showExport = !UI.showExport; render(); },
+  toggleExport:function(){ if(!UI.showExport) archiveCurrentRound(); UI.showExport = !UI.showExport; render(); },
+  toggleReco:function(){ UI.showReco = !UI.showReco; render(); },
+  toggleCumul:function(){ UI.showCumul = !UI.showCumul; render(); },
   toggleSummary:function(){ UI.showSummary = !UI.showSummary; render(); },
   retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
   wakeGPS:function(){ GPS.error=null; GPS.lastFix=null; UI.gpsFilled=false; if(!UI.touched) UI.digits=""; startGPSWatch(); render(); },
@@ -883,7 +899,7 @@ function gpsStatusHTML(hd){
 }
 
 // [2026-10-01] Date/heure de la dernière mise à jour — à changer à CHAQUE déploiement (sert à vérifier qu'on a la dernière version avec l'icône).
-var APP_VERSION_LABEL = "1er octobre 2026 à 16 h 27";
+var APP_VERSION_LABEL = "2 octobre 2026 à 15 h 46";
 var UPDATE_AVAILABLE = false;
 var UPDATE_MSG = "";
 function versionStampHTML(){
@@ -1014,6 +1030,8 @@ function render(){
       });
       html += "</div>";
       html += "<button class='shotbtn'"+(!effective?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
+      html += "<button class='btn-ghost recobtn' onclick='App.toggleReco()'>&#128161; Recommandations"+(UI.showReco?" (cacher)":"")+"</button>";
+      if(UI.showReco) html += recoPanelHTML(before);
     } else if(UI.awaitingSpot){
       var nearGreenA = before <= GREEN_BTN_MAX_V;
       if(nearGreenA) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>";
@@ -1072,6 +1090,8 @@ function render(){
 
   html += scoreTableHTML();
 
+  html += "<button class='btn-ghost' style='margin-bottom:6px' onclick='App.toggleCumul()'>&#128200; "+(UI.showCumul?"Cacher les stats cumulées":"Stats cumulées (avec les rondes précédentes)")+"</button>";
+  if(UI.showCumul) html += cumulPanelHTML();
   html += "<div style='display:flex;gap:8px'>";
   html += "<button class='btn-ghost redtext' style='flex:1' onclick='App.toggleExport()'>&#128228; "+(UI.showExport?"Cacher":"Fin / Exporter")+"</button>";
   html += "<button class='btn-ghost' style='flex:1' onclick='App.toggleSummary()'>&#128202; "+(UI.showSummary?"Cacher":"Résumé")+"</button>";
@@ -1169,6 +1189,128 @@ function scoreTableHTML(){
   html += "</div>";
   return html;
 }
+// ---------------- [2026-10-02] Historique cumulé + Recommandations ----------------
+// Chaque ronde terminée (Fin / Exporter, ou Effacer la ronde) est rangée dans l'historique du cell.
+// Les stats cumulées = historique + ronde en cours. Les « coups manqués » (sous le seuil du bâton) ne comptent jamais.
+var HISTORY_KEY = "calculDriveGPSHistory_v1";
+var MISS_THRESHOLDS = { "Cobra1":150, "Bois 1":150, "Hybride 3":125, "Bois 5":100, "Fer 7":85, "Fer 9":100 };
+function isMissedShot(club, dist){ return MISS_THRESHOLDS[club] != null && dist < MISS_THRESHOLDS[club]; }
+// RONDES D'ESSAI : les 5 dernières rondes de Claude, pour tester les recommandations. À VIDER (mettre []) avant la vente.
+var SEED_TEST_ROUNDS = [{"id":"2026-09-16|Val-Neigette|seed","date":"2026-09-16","course":"Val-Neigette","seed":true,"shots":[["Bois 1",173],["Hybride 3",150],["PW",40],["PW",91],["SW",9],["Bois 1",144],["Hybride 3",142],["Fer 8",18],["Bois 1",181],["Hybride 3",122],["PW",-2],["Bois 1",169],["Hybride 3",120],["Bois 5",135],["PW",58],["Bois 5",111],["SW",1],["Bois 1",166],["Bois 5",87],["SW",60],["SW",10],["Fer 7",56],["PW",52],["SW",-7],["Bois 1",145],["Hybride 3",124],["Bois 5",79],["Bois 5",180],["Bois 1",139],["Hybride 3",102],["Fer 9",8],["Bois 1",147],["Bois 5",0],["Bois 5",118],["Bois 1",168],["Fer 8",59],["Bois 1",183],["Hybride 3",142],["Bois 5",116],["Fer 8",35],["Bois 1",109],["Hybride 3",160],["Fer 8",40],["Bois 5",128],["Fer 8",-20],["Bois 1",177],["Bois 5",124]],"putts":[3,2,2,3,2,2,2,3,3,3,3,2,2,2,2,2]},{"id":"2026-09-17|Golf Cacouna|seed","date":"2026-09-17","course":"Golf Cacouna","seed":true,"shots":[["Bois 1",11],["Hybride 3",122],["Hybride 3",65],["Fer 7",83],["Fer 8",11],["Bois 1",191],["SW",51],["Fer 7",83],["Fer 8",0],["Bois 1",2],["Hybride 3",144],["Bois 5",117],["SW",18],["Bois 1",132],["Bois 5",52],["PW",100],["Bois 5",125],["Bois 1",155],["Fer 7",115],["Fer 8",40],["Bois 1",0],["Hybride 3",125],["Bois 5",129],["Bois 1",135],["Hybride 3",87],["Hybride 3",112],["Fer 9",92]],"putts":[1,1,2,2,3,2,2,3,2]},{"id":"2026-09-21|Golf Cacouna|seed","date":"2026-09-21","course":"Golf Cacouna","seed":true,"shots":[["Bois 1",160],["Hybride 3",142],["SW",55],["Bois 1",75],["Hybride 3",221],["SW",56],["Fer 7",108],["Bois 1",148],["Hybride 3",173],["SW",63],["Bois 1",125],["Hybride 3",30],["Hybride 3",110],["SW",36],["Fer 8",20],["Bois 5",67],["PW",51],["SW",22],["Bois 1",148],["Hybride 3",74],["Hybride 3",45],["Bois 5",152],["SW",38],["Bois 1",130],["Hybride 3",100],["PW",76],["Fer 8",6],["Bois 1",101],["Hybride 3",181],["Hybride 3",80],["Fer 9",85],["Fer 8",39]],"putts":[3,3,3,2,2,1,2,2,2]},{"id":"2026-10-01|Golf Cacouna|seed","date":"2026-10-01","course":"Golf Cacouna","seed":true,"shots":[["Cobra1",153],["Hybride 3",123],["SW56",16],["Cobra1",159],["Fer 9",90],["Fer 7",84],["Fer 8",24],["Cobra1",156],["Bois 5",102],["Fer 8",23],["Cobra1",145],["Hybride 3",118],["Fer 8",21],["Fer 7",93],["Fer 8",32],["Cobra1",150],["Hybride 3",133],["Bois 5",90],["Fer 8",18],["Cobra1",115],["Bois 5",135],["Cobra1",142],["Hybride 3",149],["Bois 5",98],["SW56",32]],"putts":[2,2,1,2,1,2,2,2,2]},{"id":"2026-10-02|Golf Cacouna|rouge","date":"2026-10-02","course":"Golf Cacouna","tee":"rouge","seed":true,"shots":[["Cobra1",95],["Hybride 3",138],["SW56",59],["Cobra1",172],["Hybride 3",77],["Fer 7",108],["Cobra1",171],["Fer 7",94],["Fer 8",16],["Cobra1",190],["Fer 9",65],["Fer 8",29],["Fer 7",125],["Cobra1",171],["Hybride 3",143],["Fer 9",72],["Fer 8",10],["Cobra1",186],["PW",64],["Cobra1",145],["Hybride 3",149],["Fer 7",99],["Fer 8",28]],"putts":[1,3,1,2,2,2,1,2,1]}];
+function loadHistory(){
+  try{
+    var raw = localStorage.getItem(HISTORY_KEY);
+    if(raw === null){
+      var h = SEED_TEST_ROUNDS.slice();
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+      return h;
+    }
+    var arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return SEED_TEST_ROUNDS.slice(); }
+}
+function saveHistory(h){ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }catch(e){} }
+function currentRoundId(){ return (ROUND.date || todayISO()) + "|" + (ROUND.course || "") + "|" + (ROUND.tee || ""); }
+// Résume la ronde en cours : coups pleins [bâton, distance] + nombre de roulés par trou (le Putter hors du vert compte aussi).
+function roundToEntry(){
+  var shots = [], putts = [];
+  Object.keys(ROUND.holes).map(Number).sort(function(a,b){ return a-b; }).forEach(function(n){
+    var h = ROUND.holes[n], pc = 0;
+    h.shots.forEach(function(s){
+      if(s.club === "Putter") pc++;
+      else shots.push([s.club, s.before - s.after]);
+    });
+    pc += puttCount(h);
+    if(h.shots.length>0 || pc>0) putts.push(pc);
+  });
+  return { id:currentRoundId(), date:ROUND.date || todayISO(), course:ROUND.course, tee:ROUND.tee, shots:shots, putts:putts };
+}
+function archiveCurrentRound(){
+  try{
+    var e = roundToEntry();
+    if(e.shots.length === 0) return;
+    var hist = loadHistory(), found = false;
+    for(var i=0;i<hist.length;i++){ if(hist[i].id === e.id){ hist[i] = e; found = true; break; } }
+    if(!found) hist.push(e);
+    saveHistory(hist);
+  }catch(err){}
+}
+// Toutes les rondes (historique sans la ronde en cours, puis la ronde en cours) — seulement les bâtons du sac actuel.
+function combinedData(){
+  var curId = currentRoundId(), cur = roundToEntry();
+  var rounds = loadHistory().filter(function(r){ return r.id !== curId; });
+  var nHist = rounds.length;
+  if(cur.shots.length > 0) rounds.push(cur);
+  var shots = [], puttTotal = 0, puttHoles = 0;
+  rounds.forEach(function(r){
+    (r.shots||[]).forEach(function(s){ if(CLUBS.indexOf(s[0]) >= 0 && s[1] > 0) shots.push({ club:s[0], dist:s[1] }); });
+    (r.putts||[]).forEach(function(p){ puttTotal += p; puttHoles++; });
+  });
+  var curP = 0; cur.putts.forEach(function(p){ curP += p; });
+  return { shots:shots, nHist:nHist, hasCurrent:cur.shots.length>0, curShots:cur.shots.length,
+           puttAvg: puttHoles ? puttTotal/puttHoles : null, puttHoles:puttHoles,
+           curPuttAvg: cur.putts.length ? curP/cur.putts.length : null };
+}
+// Recommandation : parmi les coups RÉUSSIS (jamais les manqués), quel bâton a le plus souvent fait cette distance ?
+function recommendClubs(D){
+  var shots = combinedData().shots;
+  var widths = [10, 15, 25];
+  for(var w=0; w<widths.length; w++){
+    var W = widths[w], rows = {};
+    shots.forEach(function(s){
+      if(isMissedShot(s.club, s.dist)) return;
+      if(Math.abs(s.dist - D) > W) return;
+      var r = rows[s.club] || (rows[s.club] = { club:s.club, n:0, sum:0, min:9999, max:0 });
+      r.n++; r.sum += s.dist; r.min = Math.min(r.min, s.dist); r.max = Math.max(r.max, s.dist);
+    });
+    var list = Object.keys(rows).map(function(c){ var r = rows[c]; r.avg = Math.round(r.sum/r.n); return r; });
+    if(list.length){
+      list.sort(function(a,b){ return (b.n - a.n) || (Math.abs(a.avg-D) - Math.abs(b.avg-D)); });
+      return { W:W, list:list.slice(0,3) };
+    }
+  }
+  return { W:null, list:[] };
+}
+function recoPanelHTML(D){
+  var rec = recommendClubs(D);
+  var h = "<div class='recopanel'><div class='recohead'>Il vous reste <b>"+D+" v</b></div>";
+  if(!rec.list.length){
+    h += "<div class='lead' style='text-align:center'>Pas encore de coup réussi à cette distance dans vos rondes.</div></div>";
+    return h;
+  }
+  h += "<div class='lead' style='text-align:center;font-size:.78rem'>Coups réussis entre "+(D-rec.W)+" et "+(D+rec.W)+" v (les coups manqués ne comptent pas)</div>";
+  rec.list.forEach(function(r, i){
+    h += "<button class='recorow"+(i===0?" top":"")+"' onclick='App.pickClub(\""+r.club+"\")'>" +
+      "<span class='rname'>"+(i===0?"&#11088; ":"")+clubLabel(r.club)+"</span>" +
+      "<span class='rinfo'>"+r.n+" coup"+(r.n>1?"s":"")+" &middot; moy. "+r.avg+" v</span></button>";
+  });
+  h += "<div class='lead' style='text-align:center;font-size:.72rem'>Touchez un bâton pour le choisir.</div></div>";
+  return h;
+}
+function cumulPanelHTML(){
+  var d = combinedData();
+  var total = d.nHist + (d.hasCurrent ? 1 : 0);
+  var h = "<div class='card'><h2 style='font-size:.8rem'>Stats cumulées</h2>";
+  if(!d.shots.length){ return h + "<div class='lead'>Aucun coup enregistré pour l'instant.</div></div>"; }
+  h += "<div class='lead' style='font-size:.8rem'>"+total+" ronde"+(total>1?"s":"")+" ("+d.nHist+" précédente"+(d.nHist>1?"s":"")+(d.hasCurrent?" + la ronde en cours, "+d.curShots+" coups":"")+").</div>";
+  var by = {};
+  d.shots.forEach(function(s){
+    var r = by[s.club] || (by[s.club] = { ok:0, sum:0, best:0, miss:0 });
+    if(isMissedShot(s.club, s.dist)) r.miss++;
+    else { r.ok++; r.sum += s.dist; r.best = Math.max(r.best, s.dist); }
+  });
+  h += "<div class='cumgrid cumhead'><span>Bâton</span><span>Réussis</span><span>Moyenne</span><span>Meilleur</span><span>Manqués</span></div>";
+  CLUBS.forEach(function(c){
+    var r = by[c]; if(!r) return;
+    h += "<div class='cumgrid'><span class='cn'>"+clubLabel(c)+"</span><span>"+r.ok+"</span><span>"+(r.ok?Math.round(r.sum/r.ok)+" v":"&ndash;")+"</span><span>"+(r.ok?r.best+" v":"&ndash;")+"</span><span class='"+(r.miss?"cm":"")+"'>"+r.miss+"</span></div>";
+  });
+  if(d.puttAvg !== null){
+    h += "<div class='lead' style='text-align:center;margin-top:4px'>Roulés par trou : <b>"+d.puttAvg.toFixed(2)+"</b> en cumulé ("+d.puttHoles+" trous)"+(d.curPuttAvg!==null?" &middot; ronde en cours <b>"+d.curPuttAvg.toFixed(2)+"</b>":"")+"</div>";
+  }
+  h += "<div class='lead' style='font-size:.72rem'>Moyenne et meilleur : coups réussis seulement. Manqué = sous le seuil du bâton (Cobra1 150 v, Hybride 3 125 v, Bois 5 100 v, Fer 7 85 v, Fer 9 100 v).</div>";
+  return h + "</div>";
+}
+
 function summaryHTML(){
   var agg = {};
   function addStat(club, dist){

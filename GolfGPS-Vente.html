@@ -357,6 +357,19 @@ html{scroll-padding-top:110px}
 .webnote{margin:0 0 28px;padding:16px 20px;border:2px solid var(--fairway);border-radius:12px;background:#fff;font-size:1.2rem;line-height:1.45;color:var(--turf)}
 .promo .was40{opacity:.95;font-weight:800;font-size:1.3em;text-decoration-thickness:4px;margin-right:8px}
 .promo .now20{font-size:1.5em;font-weight:900;letter-spacing:.01em}
+.taxnote{max-width:960px;margin:0 auto 18px;text-align:center;font-size:1.05rem;line-height:1.5;color:#2f473b}
+.interac{margin:12px 0 4px;border:2px solid var(--turf);border-radius:12px;background:#fff}
+.interac summary{cursor:pointer;list-style:none;padding:14px 16px;font-family:var(--display);font-stretch:85%;font-weight:800;text-transform:uppercase;font-size:1.05rem;color:#fff;background:var(--turf);border-radius:9px}
+.interac summary::-webkit-details-marker{display:none}
+.interac[open] summary{border-radius:9px 9px 0 0}
+.interac .itxt{padding:14px 16px;font-size:1rem;line-height:1.5;color:#2f473b}
+.interac .itxt p{margin:0 0 8px}
+.interac .itxt ol{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:8px;list-style:decimal}
+.interac .itxt li{display:list-item;border:0;padding:0}
+.interac .itxt li::before{content:none}
+.interac .itxt li b,.interac .itxt p b{color:var(--turf);font-size:inherit}
+.interac .itxt li{gap:0;flex-direction:row;display:list-item}
+.interac .hl{background:linear-gradient(104deg,transparent .9%,#FFE94A 2.4%,#FFD60A 6%,#FFE94A 94%,transparent 99%);padding:1px 8px;border-radius:3px;color:var(--turf)}
 .price{display:grid;grid-template-columns:minmax(0,960px);justify-content:center;gap:20px;margin-bottom:32px}
 .marker{background:linear-gradient(104deg,transparent .9%,#FFE94A 2.4%,#FFD60A 6%,#FFE94A 94%,#FFD60A 97.5%,transparent 99%);padding:3px 12px;border-radius:4px;font-weight:900;color:var(--turf);-webkit-box-decoration-break:clone;box-decoration-break:clone;transform:rotate(-.6deg);display:inline-block}
 .future{max-width:960px;margin:0 auto 56px;text-align:center;font-size:1.05rem;line-height:1.5;color:#2f473b;padding:14px 18px;border:2px dashed var(--fairway);border-radius:12px;background:#fff}
@@ -763,7 +776,8 @@ html{scroll-padding-top:110px}
         </div>
         </div>
 
-      <p class="future"><b>À venir&nbsp;:</b> la version complète, avec les quatre modes de jeu, au prix de <b>80 $</b>. Si vous avez acheté la Version de base, <b>le montant payé sera déduit</b> du prix de la version complète.</p>
+      <p class="taxnote"><b>Taxes&nbsp;:</b> le logiciel est taxable (taxes fédérale et provinciale), mais <b>le prix indiqué inclut les taxes</b>. En promotion, c'est <b>20 $, taxes provinciale et fédérale incluses</b>.</p>
+<p class="future"><b>À venir&nbsp;:</b> la version complète, avec les quatre modes de jeu, au prix de <b>80 $</b>. Si vous avez acheté la Version de base, <b>le montant payé sera déduit</b> du prix de la version complète.</p>
 
 <div class="pay" id="paiement">
         <h3>Comment payer</h3>
@@ -779,12 +793,24 @@ html{scroll-padding-top:110px}
 </div></div>
                   </div>
         <ol>
-          <li><b>Le prix</b><span>20 $ en prix promo (40 $ après la promo), une seule fois.</span></li>
+          <li><b>Le prix</b><span>20 $ en prix promo (40 $ après la promo), <b>taxes provinciale et fédérale incluses</b>, une seule fois.</span></li>
           <li><b>Payez par Interac, PayPal ou carte de crédit</b><span>Choisissez la méthode ci-dessous, pour le montant de 20 $.</span></li>
-          <li><b>Indiquez votre courriel</b><span>Dans le message du virement (Interac) ou dans la note du paiement. Je vous envoie ensuite votre code d'activation personnel.</span></li>
+          <li><b>Indiquez vos coordonnées</b><span>Votre nom, votre adresse complète (adresse, ville, province, code postal), votre numéro de téléphone et votre courriel : dans le message du virement (Interac) ou dans la note du paiement. Je vous envoie ensuite votre code d'activation personnel.</span></li>
         </ol>
         <div class="pay-methods">
-          <div class="pay-to"><h4>Virement Interac</h4><small>Sans frais, à ce courriel</small><a href="mailto:golfgpsplus@gmail.com">golfgpsplus@gmail.com</a><span class="pp-note">(Lorsque votre paiement aura été reçu, un lien vous sera envoyé.)</span></div>
+          <div class="pay-to"><h4>Virement Interac</h4><small>Sans frais, à ce courriel</small><a href="mailto:golfgpsplus@gmail.com">golfgpsplus@gmail.com</a>
+<details class="interac"><summary>Payer par virement Interac : voir comment faire</summary>
+<div class="itxt">
+<p><b>Voici les détails pour faire un virement Interac à partir de votre institution financière.</b></p>
+<ol>
+<li>Vous trouverez cette option dans le site Internet ou l'application de votre institution, normalement dans la section «&nbsp;Virer de l'argent&nbsp;».</li>
+<li>Il vous sera demandé notre adresse courriel&nbsp;: <b class="hl">golfgpsplus@gmail.com</b></li>
+<li>La plupart des institutions demandent de choisir une question dont le receveur doit connaître la réponse pour pouvoir accepter le paiement. Pour rendre cela simple, posez comme question&nbsp;: <b class="hl">J'ai acheté quoi ?</b><br>La réponse est&nbsp;: <b class="hl">golfgpsplus</b> <small>(sans espace et sans majuscule)</small></li>
+<li>Montant à envoyer&nbsp;: <b>20 $</b> en promotion, <b>taxes provinciale et fédérale incluses</b>.</li>
+<li>Dans le message du virement, indiquez <b>votre nom, votre adresse complète et votre numéro de téléphone</b>.</li>
+</ol>
+</div></details>
+<span class="pp-note">(Lorsque votre paiement aura été reçu, un lien vous sera envoyé.)</span></div>
           <div class="pay-to"><h4>PayPal ou carte de crédit</h4><small>Paiement sécurisé, avec ou sans compte PayPal</small>
             <div class="pp-btns"><a class="ppbtn" href="#paiement" data-lien="PAYPAL_20">Payer 20 $</a></div>
             <span class="pp-note">Version de démonstration : les liens PayPal seront actifs à la mise en vente.</span></div>

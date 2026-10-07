@@ -3244,6 +3244,19 @@ function demoAfterRender(){
       } else okb.remove();
     }
   }
+  // le GPS a inscrit la distance restante : la ligne du coup en haut montre déjà la longueur frappée (plus rien à confirmer)
+  if(UI.locked && UI.gpsFilled && !getHole(ROUND.cur).onGreen && UI.digits !== ""){
+    var hdp = getHole(ROUND.cur), bef = beforeDist(hdp);
+    var remV = (UI.spotForShot === "Frise du vert") ? Math.round(parseInt(UI.digits, 10) / 3) : parseInt(UI.digits, 10);
+    var line = null, divs = app.querySelectorAll(".shotlist > div");
+    for(var di = 0; di < divs.length; di++){ if(divs[di].textContent.indexOf("distance à venir") >= 0) line = divs[di]; }
+    if(line && !isNaN(remV)){
+      var nShot = hdp.shots.length + 1, hit = Math.max(0, bef - remV);
+      line.innerHTML = remV === 0
+        ? "<b>C"+nShot+" "+UI.locked+"</b> — Frappe de <b>"+bef+"v</b>, vous êtes sur le vert"
+        : "<b>C"+nShot+" "+UI.locked+"</b> — Frappe de <b>"+hit+"v</b>, reste <b>"+remV+"v</b>"+(UI.spotForShot === "Frise du vert" ? " ("+UI.digits+" pieds)" : "");
+    }
+  }
   var notes = app.querySelectorAll(".gpsnote");
   for(var k = 0; k < notes.length; k++){ if(notes[k].textContent.indexOf("Position du vert") >= 0) notes[k].remove(); }
   app.insertAdjacentHTML("afterbegin", demoStepStripHTML());

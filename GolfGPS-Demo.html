@@ -2756,7 +2756,7 @@ document.addEventListener("webkitfullscreenchange", render);
 // [2026-10-07] COUCHE DÉMO — essai gratuit 9 trous, GPS fictif, inscription, flèches d'aide
 // Tout ce qui suit remplace/enveloppe des fonctions de l'appli ci-dessus. Aucun vrai GPS n'est jamais utilisé.
 // =====================================================================
-var DEMO_INSCRIPTION_URL = "";   // <-- adresse qui reçoit les inscriptions (Formspree, Google Apps Script…). Vide = enregistré seulement dans ce navigateur.
+var DEMO_INSCRIPTION_URL = "https://formsubmit.co/ajax/golfgpsplus@gmail.com";   // <-- adresse qui reçoit les inscriptions (Formspree, Google Apps Script…). Vide = enregistré seulement dans ce navigateur.
 var DEMO_REG_KEY = "golfgps_demo_inscription_v1";
 var DEMO_PHONE = (function(){
   var ua = navigator.userAgent || "";
@@ -2806,6 +2806,8 @@ function licScreenHTML(){
     "<input id='demo-nom' type='text' autocomplete='name' maxlength='60'>" +
     "<label for='demo-email'>Votre courriel</label>" +
     "<input id='demo-email' type='email' inputmode='email' autocomplete='email' autocapitalize='off' maxlength='120'>" +
+    "<label for='demo-tel'>Votre téléphone <span style='font-weight:600;color:var(--text-muted)'>(facultatif)</span></label>" +
+    "<input id='demo-tel' type='tel' inputmode='tel' autocomplete='tel' maxlength='30'>" +
     "<label class='democonsent'><input id='demo-consent' type='checkbox'><span>J'accepte de recevoir par courriel les <b>mises à jour</b> de GolfGpsPlus et les <b>promotions spéciales</b> pouvant m'intéresser. Je peux me désabonner en tout temps.</span></label>" +
     "<div id='demo-err' class='demoerr'></div>" +
     "<button class='okbtn' onclick='demoRegister()'>&#9654; Commencer ma démo gratuite</button>" +
@@ -2814,16 +2816,30 @@ function licScreenHTML(){
 }
 function demoSend(rec){
   if(!DEMO_INSCRIPTION_URL) return;
-  try{ fetch(DEMO_INSCRIPTION_URL, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body:JSON.stringify(rec) }).catch(function(){}); }catch(e){}
+  var body = {
+    _subject: "Nouvelle inscription à la démo GolfGpsPlus",
+    _template: "table", _captcha: "false",
+    nom: rec.nom, courriel: rec.email, telephone: rec.telephone || "(non fourni)",
+    consentement_messages: "OUI", appareil: rec.appareil, date: rec.date, source: rec.source
+  };
+  var key = "golfgps_demo_envoi_en_attente";
+  try{
+    fetch(DEMO_INSCRIPTION_URL, { method:"POST", headers:{ "Content-Type":"application/json", "Accept":"application/json" }, body:JSON.stringify(body) })
+      .then(function(r){ if(!r.ok) throw new Error("http " + r.status); try{ localStorage.removeItem(key); }catch(e){} })
+      .catch(function(){ try{ localStorage.setItem(key, JSON.stringify(rec)); }catch(e){} });   // on réessaiera à la prochaine visite
+  }catch(e){}
 }
-function demoRegister(){
+(function(){   // reprise d'un envoi qui avait échoué
+  try{ var p = JSON.parse(localStorage.getItem("golfgps_demo_envoi_en_attente")); if(p && p.nom) setTimeout(function(){ demoSend(p); }, 3000); }catch(e){}
+})();function demoRegister(){
   var g = function(id){ return document.getElementById(id); };
   var nom = (g("demo-nom").value || "").trim(), email = (g("demo-email").value || "").trim(), ok = g("demo-consent").checked;
   var err = g("demo-err");
   if(nom.length < 2){ err.textContent = "Entrez votre prénom ou votre nom."; g("demo-nom").focus(); return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ err.textContent = "Entrez un courriel valide (exemple : nom@fournisseur.com)."; g("demo-email").focus(); return; }
   if(!ok){ err.textContent = "Cochez la case pour accepter de recevoir nos messages : c'est la condition de l'essai gratuit."; return; }
-  var rec = { nom:nom, email:email, consentement_messages:true, appareil:(DEMO_PHONE ? "cellulaire" : "ordinateur"), date:new Date().toISOString(), source:"demo-9-trous" };
+  var tel = (g("demo-tel").value || "").trim();
+  var rec = { nom:nom, email:email, telephone:tel, consentement_messages:true, appareil:(DEMO_PHONE ? "cellulaire" : "ordinateur"), date:new Date().toISOString(), source:"demo-9-trous" };
   try{ localStorage.setItem(DEMO_REG_KEY, JSON.stringify(rec)); }catch(e){}
   demoSend(rec);
   LIC = { nom:nom, email:email, code:"demo" };

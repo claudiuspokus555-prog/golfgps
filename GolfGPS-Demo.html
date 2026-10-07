@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GolfGpsPlus — Essai gratuit (démo 9 trous)</title>
 <meta name="theme-color" content="#1B5C3B">
 <meta name="mobile-web-app-capable" content="yes">
@@ -197,13 +198,15 @@
   .demoreset.armed{ background:var(--danger); color:#fff; }
   .demoreset-bottom{ width:100%; margin:4px 0 0; padding:12px; font-size:.95rem; }
   .tipact{ display:block; width:100%; margin:8px 0 0; background:#1B5C3B; color:#fff; border:2px solid #000; border-radius:10px; padding:10px; font-weight:900; font-size:.95rem; }
+  .demofs{ background:#FFD84D; color:#000; border:2px solid #000; border-radius:10px; font-weight:900; font-size:1.05rem; padding:9px 16px; letter-spacing:.03em; }
+  @media (hover:hover) and (pointer:fine){ .demofs{ display:none; } }
   @media (min-width:700px){
     html, body{ background:#E3EAE3; }
     #app{ background:#fff; box-shadow:0 10px 40px rgba(0,0,0,.2); border-radius:18px; margin:16px auto; min-height:0; }
   }
 </style>
 
-<div class="demobanner"><span>&#127918; DÉMO GRATUITE &mdash; GPS et données fictifs &middot; Golf Cacouna, 9 trous</span><a href="GolfGPS-Vente.html#prix">Obtenir GolfGpsPlus &mdash; 20 $</a></div>
+<div class="demobanner"><span>&#127918; DÉMO GRATUITE &mdash; GPS et données fictifs &middot; Golf Cacouna, 9 trous</span><button class="demofs" onclick="App.toggleFullscreen()">&#9974; PLEIN ÉCRAN</button><a href="GolfGPS-Vente.html#prix">Obtenir GolfGpsPlus &mdash; 20 $</a></div>
 <div id="app"></div>
 
 <script>

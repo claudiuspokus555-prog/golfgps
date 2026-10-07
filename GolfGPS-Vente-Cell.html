@@ -2,6 +2,19 @@
 <html lang="fr"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>
+/* [2026-10-07] Détection de l'appareil : cell -> version cellulaire, ordinateur -> version PC. Forcer : ?vue=pc ou ?vue=cell */
+(function(){try{
+  var q=location.search.match(/[?&]vue=(pc|cell)/), f=q?q[1]:null;
+  try{ if(f) sessionStorage.setItem('gg_vue',f); else f=sessionStorage.getItem('gg_vue'); }catch(e){}
+  var ua=navigator.userAgent||'';
+  var phone=/Android.*Mobile|iPhone|iPod|Windows Phone|Mobile/i.test(ua)||(window.matchMedia&&matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<600);
+  var want=f||(phone?'cell':'pc');
+  var isCell=/GolfGPS-Vente-Cell/i.test(location.pathname);
+  if(want==='cell'&&!isCell) location.replace('GolfGPS-Vente-Cell.html'+location.search+location.hash);
+  else if(want==='pc'&&isCell) location.replace('GolfGPS-Vente.html'+location.search+location.hash);
+}catch(e){}})();
+</script>
 <title>GolfGpsPlus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Source+Sans+3:wght@400;600;700&display=swap">
@@ -521,6 +534,7 @@ html{scroll-padding-top:110px}
       
       <a href="#questions">Questions</a>
       <a href="#prix">Prix</a>
+      <a href="GolfGPS-Demo.html">Essai gratuit</a>
       <a class="menu-buy" href="#paiement">Acheter</a>
     </nav>
   </header>
@@ -538,6 +552,7 @@ html{scroll-padding-top:110px}
         <div class="cta-row">
           <a class="btn btn-flag" href="#simulation">Voir le trou 1 en simulation</a>
           <a class="btn btn-line" href="#resume">Voir comment ça marche</a>
+          <a class="btn btn-flag" href="GolfGPS-Demo.html">&#127918; Essayer gratuitement (démo 9 trous)</a>
         </div>
         <p class="fine">Rien à télécharger. Aucun compte à créer. Elle s'ouvre dans Chrome et se lance comme une appli.</p>
       </div>
@@ -854,8 +869,8 @@ html{scroll-padding-top:110px}
 </main>
 
   <footer>
-    <span>GolfGpsPlus · fait à Cacouna pour les golfeurs du Québec</span> <span>· Une question ? <a href="mailto:golfgpsplus@gmail.com">golfgpsplus@gmail.com</a></span>
-    <span>Le portrait de la ronde en exemple est réel.</span>
+    <span>GolfGpsPlus, un logiciel créé par Claude Dumont, programmeur/analyste (amateur)</span> <span>· Une question ? <a href="mailto:golfgpsplus@gmail.com">golfgpsplus@gmail.com</a></span>
+    <span>Ronde fictive avec données fictives.</span>
   </footer>
 </div>
 

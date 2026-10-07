@@ -2902,8 +2902,9 @@ function demoFakeGPS(club){
     var sim = demoSimShot(club, beforeDist(hd), hd.shots.length), rem = sim.rem; UI.demoKind = sim.kind; UI.demoFeet = rem * 3;
     GPS.watching = false;
     GPS.lastFix = { lat:47.92, lon:-69.49, accuracy:5 };
-    UI.digits = String(rem); UI.touched = true; UI.gpsFilled = true;
+    UI.digits = String(rem); UI.touched = true; UI.gpsFilled = true; UI.demoReady = false;
     render();
+    setTimeout(function(){ if(tok === demoToken && UI.locked === club){ UI.demoReady = true; render(); } }, 1500);
   }, 1100);
 }
 (function(){
@@ -2960,10 +2961,10 @@ function gpsStatusHTML(hd){
   if(GPS.watching && !UI.gpsFilled) return "<div class='gpsnote'>&#128225; Le GPS cherche votre position&hellip; (GPS fictif de la démo)</div>";
   if(UI.gpsFilled){
     if(UI.digits === "0") return "<div class='gpsnote ok'>&#9971; Le GPS fictif indique : vous êtes sur le vert !</div>";
-    if(UI.demoKind === "green") return "<div class='gpsnote ok'>&#128205; GPS (fictif) : votre balle est à <b>"+UI.digits+" v</b> du drapeau &mdash; probablement <b>sur le vert</b>. Deux choix : <b>« Sur le vert »</b> si elle y est, sinon <b>« Allez au choix du bâton »</b></div>";
-    if(UI.demoKind === "frise") return "<div class='gpsnote ok'>&#128205; GPS (fictif) : votre balle est à <b>"+UI.digits+" v</b> du drapeau &mdash; tout près du vert. Deux choix : <b>« Très près du vert »</b> (frise) ou <b>« Allez au choix du bâton »</b></div>";
-    if(UI.spotForShot === "Frise du vert") return "<div class='gpsnote ok' style='font-size:1.1rem'>&#128205; Le GPS (fictif) a inscrit : il vous reste <b>"+UI.digits+" pieds</b> du trou. Rien à taper.</div>";
-    return "<div class='gpsnote ok' style='font-size:1.1rem'>&#128205; Le GPS (fictif) a inscrit : il vous reste <b>"+UI.digits+" v</b> jusqu'au drapeau. Rien à taper.</div>";
+    if(UI.demoKind === "green") return "<div class='gpsnote ok'>&#128205; GPS (fictif) : votre balle est à <b>"+UI.digits+" v</b> du drapeau &mdash; probablement <b>sur le vert</b>. Deux choix : <b>« Sur le vert »</b> si elle y est, sinon <b>« Allons maintenant choisir notre bâton »</b></div>";
+    if(UI.demoKind === "frise") return "<div class='gpsnote ok'>&#128205; GPS (fictif) : votre balle est à <b>"+UI.digits+" v</b> du drapeau &mdash; tout près du vert. Deux choix : <b>« Très près du vert »</b> (frise) ou <b>« Allons maintenant choisir notre bâton »</b></div>";
+    if(UI.spotForShot === "Frise du vert") return "<div class='gpsnote ok' style='font-size:1.1rem'>&#128205; Le GPS (fictif) a inscrit automatiquement la distance restante : <b>"+UI.digits+" pieds</b> du trou. Rien à taper.</div>";
+    return "<div class='gpsnote ok' style='font-size:1.1rem'>&#128205; Le GPS (fictif) a inscrit <b>automatiquement</b> la distance restante dans la case ci-dessous. Rien à taper.</div>";
   }
   return "";
 }
@@ -3019,14 +3020,14 @@ function hintShow(){
     if(!UI.gpsFilled){ Hint.t = setTimeout(hintShow, 1500); return; }
     if(UI.demoKind === "green"){
       target = demoFind(".greenbtn");
-      msg = "&#9971; Le GPS indique <b>"+UI.digits+" v</b> du drapeau. <b>Deux choix :</b><br>&bull; Votre balle est <b>sur le vert</b> ? "+DEMO_TAP+" <b>« SUR LE VERT »</b> pour passer aux roulés.<br>&bull; Pas encore sur le vert ? "+DEMO_TAP+" <b>« Allez au choix du bâton »</b> : il reste "+UI.digits+" v à jouer.";
+      msg = "&#9971; Le GPS indique <b>"+UI.digits+" v</b> du drapeau. <b>Deux choix :</b><br>&bull; Votre balle est <b>sur le vert</b> ? "+DEMO_TAP+" <b>« SUR LE VERT »</b> pour passer aux roulés.<br>&bull; Pas encore sur le vert ? "+DEMO_TAP+" <b>« Allons maintenant choisir notre bâton »</b> : il reste "+UI.digits+" v à jouer.";
     } else if(UI.demoKind === "frise" && demoFind(".friseq")){
       target = demoFind(".friseq");
-      msg = "&#127793; Le GPS indique <b>"+UI.digits+" v</b> du drapeau. <b>Deux choix :</b><br>&bull; Balle sur la frise ? "+DEMO_TAP+" <b>« TRÈS PRÈS DU VERT »</b>.<br>&bull; Sinon : <b>« Allez au choix du bâton »</b>.";
+      msg = "&#127793; Le GPS indique <b>"+UI.digits+" v</b> du drapeau. <b>Deux choix :</b><br>&bull; Balle sur la frise ? "+DEMO_TAP+" <b>« TRÈS PRÈS DU VERT »</b>.<br>&bull; Sinon : <b>« Allons maintenant choisir notre bâton »</b>.";
     }
     if(!target){
       target = demoFind(".okbtn");
-      msg = "&#9989; La distance restante est déjà inscrite par le GPS : <b>rien à taper</b>. <b>"+DEMO_TAP+" « Allez au choix du bâton »</b>.";
+      msg = "&#9989; La distance restante est déjà inscrite par le GPS : <b>rien à taper</b>. <b>"+DEMO_TAP+" « Allons maintenant choisir notre bâton »</b>.";
     }
   } else {
     var eff = UI.pendingClub || defaultClubFor(hd);
@@ -3071,8 +3072,8 @@ function tipHole1Done(){ return holeScoreDisplay(1) !== null; }
 var DEMO_TIPS = [
   { id:"reco", sel:".recopanel", when:function(hd){ return ROUND.cur===1 && hd.shots.length===0 && !UI.locked && !hd.onGreen; },
     html:"&#11088; <b>Recommandations</b> : d'après <b>vos</b> coups réussis à cette distance, le système propose les bâtons les plus fiables. Le premier est déjà choisi pour vous." },
-  { id:"gps", sel:".gpsnote", when:function(hd){ return UI.locked && UI.gpsFilled; },
-    html:"&#128205; Cette distance vient du <b>GPS</b> : vous n'avez <b>rien à taper</b>. Le programme l'inscrit pour vous." },
+  { id:"gps", sel:".keydisplay", when:function(hd){ return UI.locked && UI.gpsFilled; },
+    html:"&#128205; Voici la <b>distance restante</b> : le <b>GPS</b> vient de l'inscrire tout seul. Vous n'avez <b>rien à taper</b>." },
   { id:"shots", sel:".shotlist", when:function(hd){ return ROUND.cur===1 && hd.shots.length===1; },
     html:"&#128203; Voici où vous verrez <b>chacun de vos coups complétés</b> : le bâton utilisé, la distance frappée et la distance restante." },
   { id:"near", sel:".greenbtn.bigtop", when:function(hd){ return !UI.locked && !hd.onGreen; },
@@ -3223,7 +3224,7 @@ function demoStepStripHTML(){
 function demoAfterRender(){
   var app = document.getElementById("app");
   if(!LIC){ hintHide(); return; }
-  ["toggleFullscreen", "toggleExport", "askResetRound", "reopenSetup", "recalibratePin", "backToSpotChoice"].forEach(function(n){
+  ["toggleFullscreen", "toggleExport", "askResetRound", "reopenSetup", "recalibratePin", "backToSpotChoice", "startEditDist"].forEach(function(n){
     var list = app.querySelectorAll("[onclick*='"+n+"']");
     for(var i = 0; i < list.length; i++){
       var p = list[i].parentNode;
@@ -3232,11 +3233,16 @@ function demoAfterRender(){
     }
   });
   if(UI.locked && !getHole(ROUND.cur).onGreen){
-    var kd = app.querySelector(".keydisplay");
-    if(kd && kd.parentNode && kd.parentNode !== app) kd.parentNode.remove();
+    var cb = app.querySelector(".clearbtn"); if(cb) cb.remove();               // pas de modification de la distance
+    var kd = app.querySelector(".keydisplay"); if(kd) kd.style.flex = "1";   // la case « distance restante » reste visible
     var kp = app.querySelector(".keypad"); if(kp) kp.remove();
     var okb = app.querySelector(".okbtn");
-    if(okb){ if(UI.gpsFilled){ okb.innerHTML = "&#10145;&#65039; Allez au choix du bâton"; } else okb.remove(); }
+    if(okb){
+      if(UI.gpsFilled){
+        okb.innerHTML = "&#10145;&#65039; Allons maintenant choisir notre bâton";
+        if(UI.demoReady === false){ okb.disabled = true; okb.style.opacity = ".35"; }   // le temps de voir que le GPS a tout inscrit
+      } else okb.remove();
+    }
   }
   var notes = app.querySelectorAll(".gpsnote");
   for(var k = 0; k < notes.length; k++){ if(notes[k].textContent.indexOf("Position du vert") >= 0) notes[k].remove(); }

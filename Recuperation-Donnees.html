@@ -100,14 +100,18 @@ details{margin:8px 0} summary{cursor:pointer;font-weight:700}
       var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');say('Copié ✔')}catch(e){say('Copie impossible : utilisez « Télécharger ».')} ta.remove(); });
   };
   document.getElementById('bDl').onclick=function(){
-    var b=new Blob([json()],{type:'application/json'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='golfgpsplus-mes-donnees.json'; document.body.appendChild(a); a.click(); a.remove(); say('Fichier « golfgpsplus-mes-donnees.json » téléchargé (dossier Téléchargements).');
+    var b=new Blob([json()],{type:'text/plain'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='golfgpsplus-mes-donnees.txt'; document.body.appendChild(a); a.click(); a.remove(); say('Fichier « golfgpsplus-mes-donnees.txt » téléchargé : cherchez-le dans Téléchargements, puis joignez-le à un courriel.');
   };
   document.getElementById('bShare').onclick=function(){
-    var f=new File([json()],'golfgpsplus-mes-donnees.json',{type:'application/json'});
-    if(navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share({files:[f],title:'Mes données GolfGpsPlus'}).then(function(){say('Partagé ✔')}).catch(function(e){say('Partage annulé.')}); }
-    else say('Le partage de fichier n\'est pas possible ici : utilisez « Télécharger », puis joignez le fichier à un courriel.');
-  };
-})();
+    var txt=json(), f=new File([txt],'golfgpsplus-mes-donnees.txt',{type:'text/plain'});
+    function texte(err){
+      if(navigator.share){ navigator.share({title:'Mes données GolfGpsPlus',text:txt}).then(function(){say('Partagé ✔')}).catch(function(e2){ say('Partage impossible ('+(e2&&e2.name)+'). Utilisez « Copier tout le texte » puis collez-le dans un courriel.'); }); }
+      else say('Partage impossible ('+(err&&err.name)+'). Utilisez « Copier tout le texte » puis collez-le dans un courriel.');
+    }
+    if(navigator.canShare&&navigator.canShare({files:[f]})){
+      navigator.share({files:[f],title:'Mes données GolfGpsPlus'}).then(function(){say('Partagé ✔')}).catch(function(e){ if(e&&e.name==='AbortError'){ say('Partage fermé sans envoi.'); } else { texte(e); } });
+    } else texte(null);
+  };})();
 </script>
 </body>
 </html>

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Récupération de mes données GolfGpsPlus</title>
+<style>
+:root{--turf:#1B5C3B;--deep:#0b2e20;--gold:#FFD84D;--cream:#faf7ef;--ink:#0b1f16;--mute:#52635a;--red:#b3261e}
+*{box-sizing:border-box}
+body{margin:0;font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--cream)}
+header{background:linear-gradient(160deg,var(--turf),var(--deep));color:#fff;padding:22px 16px}
+header h1{margin:0 0 4px;font-size:1.4rem}
+header p{margin:0;opacity:.85;font-size:.95rem}
+main{max-width:760px;margin:auto;padding:14px 14px 60px}
+.card{background:#fff;border-radius:14px;padding:14px 16px;margin:12px 0;box-shadow:0 8px 24px -16px rgba(0,0,0,.45)}
+.ok{border-left:6px solid var(--turf)} .warn{border-left:6px solid #e0a800;background:#fff8e1} .bad{border-left:6px solid var(--red)}
+h2{font-size:1.1rem;margin:0 0 6px;color:var(--turf)}
+button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:13px 16px;margin:6px 6px 0 0;background:var(--turf);color:#fff;width:100%}
+button.sec{background:#fff;color:var(--turf);border:2px solid var(--turf)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+td,th{border-bottom:1px solid #e3e8e4;padding:6px 4px;text-align:left;vertical-align:top}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+pre{white-space:pre-wrap;word-break:break-all;background:#f4f7f3;border-radius:8px;padding:10px;font-size:.75rem;max-height:240px;overflow:auto}
+details{margin:8px 0} summary{cursor:pointer;font-weight:700}
+.n{font-size:.8rem;color:var(--mute)}
+</style>
+</head>
+<body>
+<header><h1>⛳ Récupération de mes données</h1><p>Cet outil <b>lit seulement</b> ce que votre téléphone a rangé pour ce site. Il ne modifie rien et n'envoie rien.</p></header>
+<main>
+<div class="card warn"><b>Important :</b> ouvrez cette page sur le <b>même téléphone</b> et dans le <b>même navigateur (Chrome)</b> que celui où vous avez joué. N'appuyez sur aucun bouton « Effacer » ailleurs.</div>
+<div id="out"><div class="card">Lecture en cours…</div></div>
+<div class="card" id="actions" hidden>
+  <h2>Garder une copie de tout</h2>
+  <button id="bShare">📤 Partager le fichier (Gmail, Drive…)</button>
+  <button id="bDl" class="sec">💾 Télécharger le fichier</button>
+  <button id="bCopy" class="sec">📋 Copier tout le texte</button>
+  <div class="n" id="msg" style="margin-top:8px"></div>
+</div>
+</main>
+<script>
+(function(){
+  var out=document.getElementById('out'), actions=document.getElementById('actions'), msg=document.getElementById('msg');
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function kb(n){return n<1024?n+' o':(n/1024).toFixed(1)+' ko'}
+  var data={origine:location.origin,lu_le:new Date().toISOString(),navigateur:navigator.userAgent,localStorage:{},cacheStorage:[],serviceWorkers:[],indexedDB:[]};
+  var html='';
+  try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); data.localStorage[k]=localStorage.getItem(k); } }catch(e){ html+='<div class="card bad">Impossible de lire la mémoire : '+esc(e.message)+'</div>'; }
+  var keys=Object.keys(data.localStorage).sort();
+  var total=keys.reduce(function(a,k){return a+k.length+data.localStorage[k].length},0);
+
+  function holeSummary(r){
+    var holes=r&&r.holes?Object.keys(r.holes).map(Number).sort(function(a,b){return a-b}):[], shots=0, played=0;
+    holes.forEach(function(n){var h=r.holes[n]; var c=(h.shots||[]).length+(h.putts||[]).filter(function(p){return p!==null&&p!==undefined}).length; if(c>0||h.onGreen){played++} shots+=c});
+    return {played:played,shots:shots};
+  }
+  function dateOf(r){ return r.date || (r.id?String(r.id).split('|')[0]:'?'); }
+
+  var found=[];
+  keys.forEach(function(k){
+    var raw=data.localStorage[k], v=null; try{v=JSON.parse(raw)}catch(e){}
+    var kind='autre', summary='';
+    if(v&&typeof v==='object'&&!Array.isArray(v)&&v.holes){ // ronde en cours
+      var s=holeSummary(v); kind='ronde'; summary='Ronde en cours : '+(v.course||'terrain non choisi')+(v.tee?', départ '+v.tee:'')+(v.date?', '+v.date:'')+' — '+s.played+' trou(s) joué(s), '+s.shots+' coups/roulés notés';
+      found.push({k:k,kind:kind,v:v});
+    } else if(Array.isArray(v)&&v.length&&v[0]&&(v[0].shots||v[0].holes||v[0].date)){ // historique
+      kind='historique'; summary='Historique : '+v.length+' ronde(s)'; found.push({k:k,kind:kind,v:v});
+    } else if(v&&typeof v==='object'){ summary='Données (objet), '+Object.keys(v).length+' élément(s)'; }
+    else { summary='Texte court : '+esc(String(raw).slice(0,60)); }
+    data._lu=data._lu||{}; data._lu[k]=kind;
+    html+='<div class="card '+(kind==='ronde'||kind==='historique'?'ok':'')+'"><h2>'+esc(k)+'</h2><div>'+summary+'</div><div class="n">'+kb(raw.length)+'</div>'+
+      '<details><summary>Voir le contenu brut</summary><pre>'+esc(raw.length>6000?raw.slice(0,6000)+'\n… ('+(raw.length-6000)+' caractères de plus dans le fichier)':raw)+'</pre></details></div>';
+  });
+
+  // résumé des rondes trouvées
+  var lignes='';
+  found.forEach(function(f){
+    if(f.kind==='historique'){ f.v.forEach(function(r){ var s=holeSummary(r), nb=(r.shots&&r.shots.length)||s.shots; lignes+='<tr><td>'+esc(dateOf(r))+'</td><td>'+esc(r.course||'')+'</td><td>'+esc(r.tee||'')+'</td><td>'+(r.holes&&r.holes.length?r.holes.length+' trous':(s.played?s.played+' trous':''))+'</td><td>'+nb+' coups</td><td>'+esc(f.k)+'</td></tr>'; }); }
+    if(f.kind==='ronde'){ var s=holeSummary(f.v); lignes+='<tr><td><b>EN COURS</b> '+esc(f.v.date||'')+'</td><td>'+esc(f.v.course||'')+'</td><td>'+esc(f.v.tee||'')+'</td><td>'+s.played+' trous</td><td>'+s.shots+' coups</td><td>'+esc(f.k)+'</td></tr>'; }
+  });
+  var head='';
+  if(!keys.length){ head='<div class="card bad"><h2>Rien trouvé dans la mémoire</h2>Aucune donnée de localStorage pour <b>'+esc(location.origin)+'</b> dans ce navigateur. Vérifiez que vous êtes bien dans Chrome, sur le téléphone où vous avez joué (pas dans une fenêtre privée).</div>'; }
+  else { head='<div class="card ok"><h2>J\'ai trouvé '+keys.length+' élément(s) rangé(s) — '+kb(total)+'</h2>'+(lignes?'<table><tr><th>Date</th><th>Terrain</th><th>Départ</th><th>Trous</th><th>Coups</th><th>Rangé dans</th></tr>'+lignes+'</table>':'<div>Aucune ronde reconnue dans ces données, mais elles sont listées plus bas.</div>')+'</div>'; }
+  out.innerHTML=head+html;
+
+  // infos complémentaires
+  var extra=[];
+  var p=[];
+  if('caches' in window){ p.push(caches.keys().then(function(ks){data.cacheStorage=ks;extra.push('Mémoire de l\'appli (cache) : '+(ks.join(', ')||'aucune'))}).catch(function(){})); }
+  if('serviceWorker' in navigator){ p.push(navigator.serviceWorker.getRegistrations().then(function(rs){data.serviceWorkers=rs.map(function(r){return r.scope});extra.push('Service workers : '+(data.serviceWorkers.join(', ')||'aucun'))}).catch(function(){})); }
+  if(indexedDB&&indexedDB.databases){ p.push(indexedDB.databases().then(function(ds){data.indexedDB=ds.map(function(d){return d.name+' (v'+d.version+')'});extra.push('Bases IndexedDB : '+(data.indexedDB.join(', ')||'aucune'))}).catch(function(){})); }
+  Promise.all(p).then(function(){ if(extra.length){ out.insertAdjacentHTML('beforeend','<div class="card"><h2>Autres informations</h2>'+extra.map(esc).join('<br>')+'</div>'); } });
+
+  actions.hidden=false;
+  function json(){return JSON.stringify(data,null,2)}
+  function say(t){msg.textContent=t}
+  document.getElementById('bCopy').onclick=function(){
+    var t=json();
+    (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(function(){say('Copié ✔ ('+kb(t.length)+'). Collez-le dans un courriel à vous-même.')}).catch(function(){
+      var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');say('Copié ✔')}catch(e){say('Copie impossible : utilisez « Télécharger ».')} ta.remove(); });
+  };
+  document.getElementById('bDl').onclick=function(){
+    var b=new Blob([json()],{type:'application/json'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='golfgpsplus-mes-donnees.json'; document.body.appendChild(a); a.click(); a.remove(); say('Fichier « golfgpsplus-mes-donnees.json » téléchargé (dossier Téléchargements).');
+  };
+  document.getElementById('bShare').onclick=function(){
+    var f=new File([json()],'golfgpsplus-mes-donnees.json',{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share({files:[f],title:'Mes données GolfGpsPlus'}).then(function(){say('Partagé ✔')}).catch(function(e){say('Partage annulé.')}); }
+    else say('Le partage de fichier n\'est pas possible ici : utilisez « Télécharger », puis joignez le fichier à un courriel.');
+  };
+})();
+</script>
+</body>
+</html>

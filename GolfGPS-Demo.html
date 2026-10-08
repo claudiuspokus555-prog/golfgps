@@ -206,7 +206,7 @@
   }
 </style>
 
-<div class="demobanner"><span>&#127918; DÉMO GRATUITE &mdash; GPS et données fictifs &middot; Golf Cacouna, 9 trous</span><button class="demofs" onclick="App.toggleFullscreen()">&#9974; PLEIN ÉCRAN</button><a href="GolfGPS-Vente.html#prix">Profitez-en : GolfGpsPlus à 50% de rabais</a></div>
+<div class="demobanner"><span>&#127918; DÉMO GRATUITE &mdash; GPS et données fictifs &middot; Golf Cacouna, 9 trous</span><button class="demofs" onclick="App.toggleFullscreen()">&#9974; PLEIN ÉCRAN</button><a href="GolfGPS-Vente-Premium.html#prix" target="_top">Profitez-en : GolfGpsPlus à 50% de rabais</a></div>
 <div id="app"></div>
 
 <script>
@@ -2976,7 +2976,7 @@ function ninePromptHTML(){
     "<div class='lead' style='text-align:center;font-weight:900;font-size:1.15rem;color:var(--text)'>&#127937; Démo terminée &mdash; bravo !</div>" +
     (t.score != null ? "<div class='lead' style='text-align:center'>Vos 9 trous : <b>"+t.score+"</b> (par "+t.par+", "+diffTxt(t.score-t.par)+")</div>" : "") +
     "<div class='lead' style='text-align:center;color:var(--text)'>Sur le terrain, c'est exactement pareil : le bâton, « Je Frappe », puis la confirmation. Le vrai GPS de votre cell remplace le GPS fictif, et vos statistiques se bâtissent ronde après ronde.</div>" +
-    "<a class='okbtn' style='display:block;text-align:center;text-decoration:none' href='GolfGPS-Vente.html#prix'>&#128722; Obtenir GolfGpsPlus &mdash; 20 $</a>" +
+    "<a class='okbtn' style='display:block;text-align:center;text-decoration:none' href='GolfGPS-Vente-Premium.html#prix' target='_top'>&#128722; Obtenir GolfGpsPlus &mdash; 20 $</a>" +
     "<button class='btn-ghost' onclick='App.demoSeeStats()'>&#128202; Voir mes statistiques de la démo</button>" +
     "<button class='btn-ghost' onclick='App.demoRestart()'>&#8634; Refaire la démo</button>" +
     "</div></div>";
@@ -3185,7 +3185,7 @@ function demoReportHTML(){
     "<h2 style='font-size:.8rem;margin:4px 0 0'>Distances par bâton (5 rondes cumulées)</h2>" +
     "<div class='cumgrid cumhead'><span>Bâton</span><span>Coups</span><span>Moyenne</span><span>Meilleur</span><span>Manqués</span></div>" + drvRow + rows +
     "<div class='lead' style='text-align:center'>&#127942; Meilleur coup de la période : <b>" + bestShot.club + " &mdash; " + bestShot.v + " v</b></div>" +
-    "<a class='okbtn' style='display:block;text-align:center;text-decoration:none' href='GolfGPS-Vente.html#prix'>&#128722; Obtenir GolfGpsPlus &mdash; 20 $</a>" +
+    "<a class='okbtn' style='display:block;text-align:center;text-decoration:none' href='GolfGPS-Vente-Premium.html#prix' target='_top'>&#128722; Obtenir GolfGpsPlus &mdash; 20 $</a>" +
     "<button class='btn-ghost' onclick='demoCloseReport()'>Fermer</button></div></div>";
 }
 function demoShowReport(){

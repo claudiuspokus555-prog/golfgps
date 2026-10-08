@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Calcul de Drive — GPS</title>
+<title>GolfGpsPlus</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B5C3B">
 <meta name="mobile-web-app-capable" content="yes">
@@ -27,10 +27,11 @@
   .holebadge .prog{ font-weight:900; font-size:1.5rem; line-height:1; }
   .holebadge .sub{ font-size:.85rem; font-weight:800; margin-top:2px; }
 
-  .teerow{ display:flex; gap:8px; }
+  .teerow{ display:flex; gap:8px; flex-wrap:wrap; }
   .teebtn{ flex:1; border-radius:10px; padding:9px 4px; text-align:center; font-weight:900; font-size:.95rem; border:2px solid var(--border); }
   .teebtn.blanc{ background:#FFFFFF; color:#000; }
   .teebtn.rouge{ background:#F4E3E3; color:#7A1414; }
+  .teebtn.bleu{ background:#D6E8FA; color:#0B3D75; }
   .teebtn.sel{ border-color:var(--accent); box-shadow:inset 0 0 0 2px var(--accent); }
 
   .card{ background:var(--surface); border:1.75px solid var(--border); border-radius:13px; padding:12px; display:flex; flex-direction:column; gap:9px; }
@@ -66,6 +67,7 @@
   .greenbtn[disabled]{ opacity:.35; pointer-events:none; }
   /* Bouton « Sur le vert » mis en évidence en haut quand il restait 125 v ou moins avant le coup (GREEN_BTN_MAX_V), dans toutes les versions */
   .greenbtn.bigtop{ background:#F2B705; color:#1A1A1A; border:3px solid #FFD84D; font-size:1.45rem; font-weight:900; padding:16px 4px; margin:4px 0 10px; box-shadow:0 3px 10px rgba(0,0,0,.35); }
+  .friseq{ width:100%; margin:-4px 0 10px; background:#E3F2D1; border:2px solid var(--accent); border-radius:10px; padding:12px 4px; font-weight:900; font-size:1.05rem; color:var(--accent); }
   .greenbtn.bigtop:active{ background:#FFD84D; color:#1A1A1A; }
   .okbtn{ width:100%; background:var(--accent); color:var(--accent-text); border:none; border-radius:12px; padding:13px; font-weight:900; font-size:1.1rem; }
   .okbtn[disabled]{ opacity:.4; pointer-events:none; }
@@ -145,14 +147,19 @@
   .voiceopts{ display:flex; justify-content:space-between; gap:6px; }
   .voiceopts button{ flex:1; font-size:.72rem; padding:4px; }
   .recobtn{ margin-top:6px; font-weight:800; }
-  .recopanel{ border:2px solid var(--accent); border-radius:12px; padding:9px; display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+  .recopanel{ background:#FFF1C2; border:2px solid var(--accent); border-radius:12px; padding:9px; display:flex; flex-direction:column; gap:6px; margin-top:6px; }
   .recohead{ text-align:center; font-size:1rem; }
   .recohead b{ color:var(--danger); font-size:1.25rem; }
   .recorow{ display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--bg); border:1.75px solid var(--border); border-radius:10px; padding:10px 12px; color:var(--text); font-size:.95rem; }
+  .recofoot{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .recofoot .lead{ text-align:left; flex:1; }
+  .shotbtn.recoshot{ display:inline-block; width:auto; flex:none; font-size:.9rem; padding:9px 14px; border-radius:11px; }
   .recorow .rname{ font-weight:900; font-size:1.1rem; }
-  .recorow .rinfo{ font-weight:700; color:var(--text-muted); font-size:.85rem; }
-  .recorow.top{ background:var(--accent); border-color:var(--accent); }
-  .recorow.top .rname, .recorow.top .rinfo{ color:var(--accent-text); }
+  .recorow .rinfo{ font-weight:700; color:var(--text-muted); font-size:.85rem; text-align:right; display:flex; flex-direction:column; gap:1px; }
+  .recorow .rinfo small{ font-weight:600; font-size:.7rem; opacity:.9; }
+  .recorow.top{ border-color:var(--accent); }
+  .recorow.sel{ background:var(--accent); border-color:var(--accent); }
+  .recorow.sel .rname, .recorow.sel .rinfo{ color:var(--accent-text); }
   .cumgrid{ display:grid; grid-template-columns:1.3fr 1fr 1.2fr 1.2fr 1fr; gap:4px; text-align:center; font-size:.85rem; font-weight:700; padding:5px 0; border-bottom:1px solid var(--border); }
   .cumgrid.cumhead{ font-size:.68rem; text-transform:uppercase; color:var(--text-muted); font-weight:900; }
   .cumgrid .cn{ text-align:left; font-weight:900; color:var(--accent); }
@@ -168,6 +175,23 @@ var CACOUNA_BACK_BLANC=[364,342,108,356,339,162,469,318,505];
 var CACOUNA_BACK_ROUGE=[298,326,108,342,311,125,430,256,421];
 var CACOUNA_PARS9=[4,4,3,4,4,3,5,4,5];
 var COURSES = {
+  "Golf Rivière-du-Loup": {
+    // Normale du trou 8 : « 4/5 » sur la carte — 4 retenu.
+    pars: [4,5,3,4,4,3,5,4,3, 5,4,4,3,5,3,4,4,5],
+    tees: {
+      bleu:  [355,529,150,353,415,114,478,439,177, 420,390,248,185,532,204,392,380,520],
+      blanc: [337,506,145,353,415,114,470,415,172, 420,373,248,170,467,194,374,357,498],
+      rouge: [327,486,140,279,338,108,424,402,126, 392,361,230,170,440,176,303,291,421]
+    }
+  },
+  "Golf Matane": {
+    pars: [4,3,4,5,4,3,5,3,4, 5,3,4,4,4,4,3,5,4],
+    tees: {
+      bleu:  [355,140,345,460,335,200,490,207,445, 480,105,318,380,380,345,150,515,390],
+      blanc: [330,125,325,450,320,180,425,160,420, 450,95,280,335,370,310,135,455,370],
+      rouge: [250,100,285,375,265,170,375,150,330, 385,85,255,260,280,225,115,405,275]
+    }
+  },
   "Golf Cacouna": {
     pars: CACOUNA_PARS9.concat(CACOUNA_PARS9),
     tees: {
@@ -183,6 +207,11 @@ var COURSES = {
     }
   }
 };
+// [2026-10-03] Départs : bleu, blanc, rouge (les terrains n'ont pas tous le bleu)
+var TEE_LABELS = {bleu:"Bleu", blanc:"Blanc", rouge:"Rouge"};
+function teeLabelOf(t){ return TEE_LABELS[t] || "Blanc"; }
+function teesText(c){ var l = teesOfCourse(c).map(function(x){ return teeLabelOf(x); }); return l.length>1 ? l.slice(0,-1).join(", ")+" ou "+l[l.length-1] : l.join(""); }
+function teesOfCourse(c){ var co = COURSES[c]; return co ? ['bleu','blanc','rouge'].filter(function(x){ return !!co.tees[x]; }) : ['blanc','rouge']; }
 var DEFAULT_COURSE = "Golf Cacouna";
 var CLUBS=["Cobra1","Hybride 3","Bois 5","Fer 5","Fer 7","Fer 8","Fer 9","PW","SW","SW56"];
 var CLUB_SHORT={"Hybride 3":"Hybr 3"};
@@ -239,6 +268,46 @@ function getPinGPS(course, holeNum){
 // plus précises qu'une prise GPS de téléphone sur le terrain, donc jamais écrasées automatiquement
 // (seule une recalibration manuelle explicite peut les remplacer).
 var PIN_SEED = {
+  "Golf Rivière-du-Loup": {
+    "1": {lat:47.802692, lon:-69.571435},
+    "2": {lat:47.806340, lon:-69.575435},
+    "3": {lat:47.807426, lon:-69.576761},
+    "4": {lat:47.809872, lon:-69.579562},
+    "5": {lat:47.806930, lon:-69.576727},
+    "6": {lat:47.806053, lon:-69.576554},
+    "7": {lat:47.803359, lon:-69.572442},
+    "8": {lat:47.805313, lon:-69.575976},
+    "9": {lat:47.803335, lon:-69.574533},
+    "10": {lat:47.801730, lon:-69.578713},
+    "11": {lat:47.802218, lon:-69.578567},
+    "12": {lat:47.803713, lon:-69.579501},
+    "13": {lat:47.804460, lon:-69.582476},
+    "14": {lat:47.805896, lon:-69.582689},
+    "15": {lat:47.806426, lon:-69.582151},
+    "16": {lat:47.804210, lon:-69.579943},
+    "17": {lat:47.806373, lon:-69.581061},
+    "18": {lat:47.803269, lon:-69.575864}
+  },
+  "Golf Matane": {
+    "1": {lat:48.814331, lon:-67.530408},
+    "2": {lat:48.815964, lon:-67.531678},
+    "3": {lat:48.818384, lon:-67.530412},
+    "4": {lat:48.817827, lon:-67.524467},
+    "5": {lat:48.820055, lon:-67.524384},
+    "6": {lat:48.818457, lon:-67.526971},
+    "7": {lat:48.821811, lon:-67.530447},
+    "8": {lat:48.820301, lon:-67.531261},
+    "9": {lat:48.815465, lon:-67.533947},
+    "10": {lat:48.812706, lon:-67.529487},
+    "11": {lat:48.813671, lon:-67.529345},
+    "12": {lat:48.815345, lon:-67.525036},
+    "13": {lat:48.817933, lon:-67.521210},
+    "14": {lat:48.820245, lon:-67.523078},
+    "15": {lat:48.817940, lon:-67.522545},
+    "16": {lat:48.816182, lon:-67.524026},
+    "17": {lat:48.814383, lon:-67.529279},
+    "18": {lat:48.814527, lon:-67.534709}
+  },
   "Val-Neigette": {
     "1":  {lat:48.362056, lon:-68.485919},
     "2":  {lat:48.358108, lon:-68.488956},
@@ -360,7 +429,7 @@ function stopGPSWatch(){
   GPS.lastFix = null;
 }
 function gpsNap(){ if(isGpsOnDemand()) stopGPSWatch(); }
-var GREEN_BTN_MAX_V = 125; // gros bouton jaune « SUR LE VERT » en haut quand il reste 125 v ou moins avant le coup (toutes les versions)
+var GREEN_BTN_MAX_V = 150; // [2026-10-06: 125 -> 150] gros boutons « SUR LE VERT » / « TRÈS PRÈS DU VERT » quand il reste 150 v ou moins avant le coup (toutes les versions)
 var MAX_REALISTIC_VERGES = 700; // au-delà, le GPS n'est clairement pas sur ce terrain (ex. test à la maison)
 function rawSuggestedRemaining(hd){
   if(!GPS.lastFix) return null;
@@ -471,6 +540,7 @@ function stopVoiceNote(){
   if(VoiceNote.recognizer){ try{ VoiceNote.recognizer.stop(); }catch(e){} }
 }
 function voiceNoteButtonHTML(hole, i){
+  if(ROUND.mode === "allegee") return ""; // version Allégée : pas de micro (réservé aux autres versions)
   if(VoiceNote.active && VoiceNote.hole===hole && VoiceNote.shotIdx===i){
     var interimHTML = VoiceNote.interim ? "<div class='voicenote interim'>"+escapeHtml(VoiceNote.interim)+"&hellip;</div>" : "";
     return "<button class='micbtn recording' onclick='App.stopVoiceNote()'>⏺ Écoute&hellip; (touche pour arrêter)</button>"+interimHTML;
@@ -493,7 +563,9 @@ if(!hasAnyShots){
 } else if(ROUND.setupConfirmed === undefined){
   ROUND.setupConfirmed = true;
 }
-var UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
+function recoPrefLoad(){ try{ return JSON.parse(localStorage.getItem("calculDriveGPSRecoPref_v1")) || {streak:0, auto:false}; }catch(e){ return {streak:0, auto:false}; } }
+function recoPrefSave(p){ try{ localStorage.setItem("calculDriveGPSRecoPref_v1", JSON.stringify(p)); }catch(e){} }
+var UI = { showReco:recoPrefLoad().auto, pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
 if(hasAnyShots && !ROUND.mode) ROUND.mode = "complete"; // ronde commencée avant l'ajout des versions
 var MODE_LABELS = { complete:"Complète", allegee:"Allégée", parlee:"Parlée", gpsdemande:"GPS sur demande" };
 function isVoiceMode(){ return ROUND.mode === "parlee"; }
@@ -516,8 +588,31 @@ function loadRound(){
   }catch(e){}
   return { tee:null, course:null, cur:1, holes:{} };
 }
+// [2026-10-08] Sauvegarde automatique : dès qu'une ronde contient un coup ou un roulé, une copie complète est gardée
+// à part (BACKUP_KEY) et la ronde est rangée dans l'historique à chaque enregistrement. Une remise à zéro ne peut plus tout effacer.
+var BACKUP_KEY = "calculDriveGPSBackup_v1";
+function roundHasData(r){
+  try{
+    return Object.keys((r && r.holes) || {}).some(function(n){
+      var h = r.holes[n];
+      return h && ((h.shots && h.shots.length > 0) || (h.putts || []).some(function(p){ return p !== null && p !== undefined; }));
+    });
+  }catch(e){ return false; }
+}
+function loadBackup(){
+  try{
+    var b = JSON.parse(localStorage.getItem(BACKUP_KEY));
+    return (b && b.round && roundHasData(b.round)) ? b : null;
+  }catch(e){ return null; }
+}
 function saveRound(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(ROUND)); }catch(e){}
+  try{
+    if(roundHasData(ROUND)){
+      localStorage.setItem(BACKUP_KEY, JSON.stringify({ savedAt:new Date().toISOString(), round:ROUND }));
+      archiveCurrentRound();
+    }
+  }catch(e){}
 }
 
 function getHole(n){
@@ -541,14 +636,35 @@ function defaultClubFor(hd){
   return null;
 }
 var App = {
+  // [2026-10-08] Garde-fou : toucher le terrain ou le départ efface les trous — on demande confirmation si une ronde est en cours.
+  guardRound:function(what){
+    if(!roundHasData(ROUND)) return true;
+    var n = 0;
+    Object.keys(ROUND.holes).forEach(function(k){ n += (ROUND.holes[k].shots || []).length; });
+    if(!confirm("Une ronde est en cours ("+n+" coup"+(n>1?"s":"")+" notés). Changer "+what+" va l'effacer de l'écran.\n\nElle reste gardée dans l'historique et dans la sauvegarde automatique.\n\nContinuer ?")) return false;
+    archiveCurrentRound();
+    return true;
+  },
+  restoreBackup:function(){
+    var b = loadBackup();
+    if(!b) return;
+    if(roundHasData(ROUND) && !confirm("Remplacer la ronde affichée par la ronde sauvegardée ?")) return;
+    ROUND = b.round;
+    if(ROUND.setupConfirmed === undefined) ROUND.setupConfirmed = true;
+    saveRound(); render();
+  },
+  toggleDates:function(){ UI.showDates = !UI.showDates; render(); },
   setTee:function(t){
+    if(!App.guardRound("le départ")) return;
     ROUND.tee = t;
     ROUND.holes = {};
     saveRound(); render();
   },
   setCourse:function(c){
     if(!COURSES[c]) return;
+    if(!App.guardRound("le terrain")) return;
     ROUND.course = c;
+    if(ROUND.tee && teesOfCourse(c).indexOf(ROUND.tee) < 0) ROUND.tee = null;
     ROUND.holes = {};
     saveRound(); render();
   },
@@ -601,6 +717,8 @@ var App = {
   pickClub:function(c){ UI.pendingClub = c; render(); },
   lockShot:function(){
     if(!ROUND.setupConfirmed) return;
+    // Recommandations ouvertes à plus de 2 coups de suite : on les garde ouvertes par défaut (jusqu'à ce que vous les cachiez).
+    var rp = recoPrefLoad(); rp.streak = UI.showReco ? (rp.streak||0)+1 : 0; if(rp.streak > 2) rp.auto = true; recoPrefSave(rp);
     var hd = getHole(ROUND.cur);
     var club = UI.pendingClub || defaultClubFor(hd);
     if(!club) return;
@@ -611,6 +729,8 @@ var App = {
     updateSuggestion();
   },
   cancelLock:function(){ UI.locked=null; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null; gpsNap(); render(); },
+  quickGreen:function(){ var hq=getHole(ROUND.cur); var cq=UI.pendingClub || defaultClubFor(hq); if(!cq){ UI.needClub=true; render(); return; } UI.needClub=false; UI.locked=cq; UI.awaitingSpot=false; this.confirmShot(0); },
+  quickFrise:function(){ var hq=getHole(ROUND.cur); var cq=UI.pendingClub || defaultClubFor(hq); if(!cq){ UI.needClub=true; render(); return; } UI.needClub=false; UI.locked=cq; this.chooseSpot("Frise du vert"); },
   chooseSpot:function(spot){
     UI.spotForShot = spot; UI.awaitingSpot = false; UI.digits=""; UI.touched=false;
     render();
@@ -720,14 +840,15 @@ var App = {
   },
   resetRound:function(){
     archiveCurrentRound();
+    try{ localStorage.removeItem(BACKUP_KEY); }catch(e){}
     Voice.stop();
     stopGPSWatch();
     ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{}, mode:null, date:null };
-    UI = { pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
+    UI = { showReco:recoPrefLoad().auto, pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
     saveRound(); render();
   },
   toggleExport:function(){ if(!UI.showExport) archiveCurrentRound(); UI.showExport = !UI.showExport; render(); },
-  toggleReco:function(){ UI.showReco = !UI.showReco; render(); },
+  toggleReco:function(){ UI.showReco = !UI.showReco; if(!UI.showReco){ recoPrefSave({streak:0, auto:false}); } render(); },
   toggleCumul:function(){ UI.showCumul = !UI.showCumul; render(); },
   toggleSummary:function(){ UI.showSummary = !UI.showSummary; render(); },
   retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
@@ -899,7 +1020,7 @@ function gpsStatusHTML(hd){
 }
 
 // [2026-10-01] Date/heure de la dernière mise à jour — à changer à CHAQUE déploiement (sert à vérifier qu'on a la dernière version avec l'icône).
-var APP_VERSION_LABEL = "2 octobre 2026 à 16 h 04";
+var APP_VERSION_LABEL = "8 octobre 2026 à 16 h 53";
 var UPDATE_AVAILABLE = false;
 var UPDATE_MSG = "";
 function versionStampHTML(){
@@ -962,19 +1083,19 @@ function render(){
 
   if(!ROUND.setupConfirmed){
     html += updateBannerHTML();
+    html += backupBannerHTML();
     if(!(ROUND.course && ROUND.tee)){
-      html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez votre terrain et votre départ (Rouge ou Blanc)</div>";
+      html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez votre terrain et votre départ"+" ("+teesText(ROUND.course)+")"+"</div>";
       html += "<div class='teerow'>";
       Object.keys(COURSES).forEach(function(c){
         html += "<button class='teebtn"+(ROUND.course===c?" sel":"")+"' onclick='App.setCourse(\""+c+"\")'>"+c+"</button>";
       });
       html += "</div>";
       html += "<div class='teerow'>";
-      html += "<button class='teebtn blanc"+(ROUND.tee==="blanc"?" sel":"")+"' onclick='App.setTee(\"blanc\")'>Départ Blanc</button>";
-      html += "<button class='teebtn rouge"+(ROUND.tee==="rouge"?" sel":"")+"' onclick='App.setTee(\"rouge\")'>Départ Rouge</button>";
+      teesOfCourse(ROUND.course).forEach(function(tt){ html += "<button class='teebtn "+tt+(ROUND.tee===tt?" sel":"")+"' onclick='App.setTee(\""+tt+"\")'>Départ "+teeLabelOf(tt)+"</button>"; });
       html += "</div>";
     } else {
-      var teeLabel = ROUND.tee==="rouge" ? "Rouge" : "Blanc";
+      var teeLabel = teeLabelOf(ROUND.tee);
       html += "<div class='card confirm-flash' style='text-align:center;gap:11px'>";
       html += "<div style='font-size:1.2rem;font-weight:900'>Vous avez choisi de jouer au golf de <span style='color:var(--accent)'>"+ROUND.course+"</span> et de démarrer sur le départ des <span style='color:var(--accent)'>"+teeLabel+"</span>.</div>";
       html += "<button class='okbtn' onclick='App.confirmSetup()'>&#9989; Je confirme</button>";
@@ -999,7 +1120,7 @@ function render(){
   html += "<button class='navbtn' onclick='App.goHole("+(ROUND.cur+1)+")'"+(ROUND.cur>=18?" disabled":"")+">&#9654;</button>";
   html += "</div>";
 
-  html += "<div class='lead' style='text-align:center'>Vous avez choisi <b style='color:var(--accent)'>"+ROUND.course+"</b> à partir de <b style='color:var(--accent)'>"+(ROUND.tee==="rouge"?"Rouge":"Blanc")+"</b> <button class='linklike' onclick='App.reopenSetup()'>changer</button></div>";
+  html += "<div class='lead' style='text-align:center'>Vous avez choisi <b style='color:var(--accent)'>"+ROUND.course+"</b> à partir de <b style='color:var(--accent)'>"+teeLabelOf(ROUND.tee)+"</b> <button class='linklike' onclick='App.reopenSetup()'>changer</button></div>";
   html += modeLineHTML();
 
   html += shotsCardHTML(hd);
@@ -1024,17 +1145,22 @@ function render(){
       html += "<button class='okbtn' style='flex:2'"+(UI.digits===""?" disabled":"")+" onclick='App.confirmEditDist()'>&#9989; OK</button>";
       html += "</div>";
     } else if(!UI.locked){
+      // [2026-10-06] reste 125 v ou moins après un coup : on offre aussi « Sur le vert » / « Très près du vert » (bâton choisi ci-dessous)
+      if(before <= GREEN_BTN_MAX_V && hd.shots.length>0 && !(lastShotForFeet && lastShotForFeet.spot === "Frise du vert")){
+        html += "<button class='greenbtn bigtop' onclick='App.quickGreen()'>&#9971; SUR LE VERT</button><button class='clubbtn friseq' onclick='App.quickFrise()'>&#127793; TR&Egrave;S PR&Egrave;S DU VERT (ou frise)</button>";
+        if(UI.needClub) html += "<div class='lead' style='text-align:center;color:var(--danger);font-weight:800'>Touchez d'abord le bâton utilisé, ci-dessous.</div>";
+      }
       html += "<div class='clubgrid'>";
       clubsForHole(hd).forEach(function(c){
         html += "<button class='clubbtn"+(effective===c?" sel":"")+"' onclick='App.pickClub(\""+c+"\")'>"+clubLabel(c)+"</button>";
       });
       html += "</div>";
       html += "<button class='shotbtn'"+(!effective?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button>";
-      html += "<button class='btn-ghost recobtn' onclick='App.toggleReco()'>&#128161; Recommandations"+(UI.showReco?" (cacher)":"")+"</button>";
+      html += "<button class='btn-ghost recobtn' onclick='App.toggleReco()'>&#128161; "+(UI.showReco?"Cacher les recommandations":"Recommandations")+"</button>";
       if(UI.showReco) html += recoPanelHTML(before, hd.shots.length===0);
     } else if(UI.awaitingSpot){
       var nearGreenA = before <= GREEN_BTN_MAX_V;
-      if(nearGreenA) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>";
+      if(nearGreenA) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>" + "<button class='clubbtn friseq' onclick='App.chooseSpot(\"Frise du vert\")'>&#127793; TR&Egrave;S PR&Egrave;S DU VERT (ou frise)</button>";
       html += "<div class='lead' style='text-align:center'>Où est tombée votre balle ? <button class='linklike' onclick='App.cancelLock()'>changer de bâton</button></div>";
       html += "<div class='spotgrid'>";
       [["Fairway","&#128994; Fairway"],["Herbe longue","&#127806; Herbe longue"],["Trappe de sable","&#127958; Sable"],["Eau","&#128167; Eau"],["Boisé","&#127795; Boisé"],["Frise du vert","&#127793; Frise"]].forEach(function(p){
@@ -1049,13 +1175,15 @@ function render(){
       var distPhrase = isFrise ? "<b>DISTANCE EN PIEDS</b>" : "distance";
       // GREEN_BTN_MAX_V (125 v) ou moins à faire avant ce coup : le bouton « Sur le vert » monte en haut, en gros et en jaune
       var greenAllowed = (ROUND.mode === "allegee" || isGpsOnDemand() || isVoiceMode());
-      var nearGreenB = before <= GREEN_BTN_MAX_V; // gros bouton dans toutes les versions, y compris Complète
-      if(nearGreenB) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>";
+      var nearRange = before <= GREEN_BTN_MAX_V;
+      // [2026-10-06] une fois « rendu à votre balle » cliqué (GPS allumé ou distance trouvée), on n'est pas sur le vert : on retire les 2 gros boutons
+      var nearGreenB = nearRange && !(isGpsOnDemand() && (GPS.watching || UI.gpsFilled));
+      if(nearGreenB) html += "<button class='greenbtn bigtop' onclick='App.confirmShot(0)'>&#9971; SUR LE VERT</button>" + (isFrise ? "" : "<button class='clubbtn friseq' onclick='App.chooseSpot(\"Frise du vert\")'>&#127793; TR&Egrave;S PR&Egrave;S DU VERT (ou frise)</button>");
       html += "<div class='lead' style='text-align:center'>Après la frappe du <b style='color:var(--accent)'>"+UI.locked+"</b>"+spotPhrase+", vous êtes à quelle "+distPhrase+" du "+targetWord+" ? <button class='linklike' onclick='App.backToSpotChoice()'>changer</button></div>";
       html += gpsStatusHTML(hd);
       html += keypadHTML("");
       html += "<button class='okbtn'"+(UI.digits===""?" disabled":"")+" onclick='App.confirmShotFromSpotScreen()'>&#9989; Confirmer la distance</button>";
-      if(greenAllowed && !nearGreenB){
+      if(greenAllowed && !nearRange){
         html += "<button class='greenbtn' onclick='App.confirmShot(0)'>&#9971; Sur le vert</button>";
       }
     }
@@ -1092,6 +1220,8 @@ function render(){
 
   html += "<button class='btn-ghost' style='margin-bottom:6px' onclick='App.toggleCumul()'>&#128200; "+(UI.showCumul?"Cacher les stats cumulées":"Stats cumulées (avec les rondes précédentes)")+"</button>";
   if(UI.showCumul) html += cumulPanelHTML();
+  html += "<button class='btn-ghost' style='margin-bottom:6px' onclick='App.toggleDates()'>&#128197; "+(UI.showDates?"Cacher les rondes par date":"Rondes par date")+"</button>";
+  if(UI.showDates) html += datesPanelHTML();
   html += "<div style='display:flex;gap:8px'>";
   html += "<button class='btn-ghost redtext' style='flex:1' onclick='App.toggleExport()'>&#128228; "+(UI.showExport?"Cacher":"Fin / Exporter")+"</button>";
   html += "<button class='btn-ghost' style='flex:1' onclick='App.toggleSummary()'>&#128202; "+(UI.showSummary?"Cacher":"Résumé")+"</button>";
@@ -1113,7 +1243,7 @@ function render(){
   }
   if(UI.showExport){
     var txt = exportText();
-    var subj = encodeURIComponent("Calcul de Drive - ronde");
+    var subj = encodeURIComponent("GolfGpsPlus - ronde");
     var body = encodeURIComponent(txt);
     var toAddr = "claudiuspokus555@gmail.com";
     html += "<div class='card'>";
@@ -1194,22 +1324,74 @@ function scoreTableHTML(){
 // Les stats cumulées = historique + ronde en cours. Les « coups manqués » (sous le seuil du bâton) ne comptent jamais.
 var HISTORY_KEY = "calculDriveGPSHistory_v1";
 var MISS_THRESHOLDS = { "Cobra1":150, "Bois 1":150, "Hybride 3":125, "Bois 5":100, "Fer 7":85, "Fer 9":100 };
+// [2026-10-04] Fer 8 joué à 50 v ou moins du vert = approche sans élan : stat à part, hors de la force réelle du Fer 8.
+var FER8_NEAR = "Fer 8 près du vert", NEAR_GREEN_MAX_V = 50;
+CLUB_SHORT[FER8_NEAR] = "Fer 8 près vert";
+function baseClub(c){ return c === FER8_NEAR ? "Fer 8" : c; }
+function statClub(club, before){ return (club === "Fer 8" && before != null && before <= NEAR_GREEN_MAX_V) ? FER8_NEAR : club; }
 function isMissedShot(club, dist){ return MISS_THRESHOLDS[club] != null && dist < MISS_THRESHOLDS[club]; }
-// RONDES D'ESSAI : les 5 dernières rondes de Claude, pour tester les recommandations. À VIDER (mettre []) avant la vente.
-var SEED_TEST_ROUNDS = [{"id":"2026-09-16|Val-Neigette|seed","date":"2026-09-16","course":"Val-Neigette","seed":true,"shots":[["Bois 1",173],["Hybride 3",150],["PW",40],["PW",91],["SW",9],["Bois 1",144],["Hybride 3",142],["Fer 8",18],["Bois 1",181],["Hybride 3",122],["PW",-2],["Bois 1",169],["Hybride 3",120],["Bois 5",135],["PW",58],["Bois 5",111],["SW",1],["Bois 1",166],["Bois 5",87],["SW",60],["SW",10],["Fer 7",56],["PW",52],["SW",-7],["Bois 1",145],["Hybride 3",124],["Bois 5",79],["Bois 5",180],["Bois 1",139],["Hybride 3",102],["Fer 9",8],["Bois 1",147],["Bois 5",0],["Bois 5",118],["Bois 1",168],["Fer 8",59],["Bois 1",183],["Hybride 3",142],["Bois 5",116],["Fer 8",35],["Bois 1",109],["Hybride 3",160],["Fer 8",40],["Bois 5",128],["Fer 8",-20],["Bois 1",177],["Bois 5",124]],"putts":[3,2,2,3,2,2,2,3,3,3,3,2,2,2,2,2]},{"id":"2026-09-17|Golf Cacouna|seed","date":"2026-09-17","course":"Golf Cacouna","seed":true,"shots":[["Bois 1",11],["Hybride 3",122],["Hybride 3",65],["Fer 7",83],["Fer 8",11],["Bois 1",191],["SW",51],["Fer 7",83],["Fer 8",0],["Bois 1",2],["Hybride 3",144],["Bois 5",117],["SW",18],["Bois 1",132],["Bois 5",52],["PW",100],["Bois 5",125],["Bois 1",155],["Fer 7",115],["Fer 8",40],["Bois 1",0],["Hybride 3",125],["Bois 5",129],["Bois 1",135],["Hybride 3",87],["Hybride 3",112],["Fer 9",92]],"putts":[1,1,2,2,3,2,2,3,2]},{"id":"2026-09-21|Golf Cacouna|seed","date":"2026-09-21","course":"Golf Cacouna","seed":true,"shots":[["Bois 1",160],["Hybride 3",142],["SW",55],["Bois 1",75],["Hybride 3",221],["SW",56],["Fer 7",108],["Bois 1",148],["Hybride 3",173],["SW",63],["Bois 1",125],["Hybride 3",30],["Hybride 3",110],["SW",36],["Fer 8",20],["Bois 5",67],["PW",51],["SW",22],["Bois 1",148],["Hybride 3",74],["Hybride 3",45],["Bois 5",152],["SW",38],["Bois 1",130],["Hybride 3",100],["PW",76],["Fer 8",6],["Bois 1",101],["Hybride 3",181],["Hybride 3",80],["Fer 9",85],["Fer 8",39]],"putts":[3,3,3,2,2,1,2,2,2]},{"id":"2026-10-01|Golf Cacouna|seed","date":"2026-10-01","course":"Golf Cacouna","seed":true,"shots":[["Cobra1",153],["Hybride 3",123],["SW56",16],["Cobra1",159],["Fer 9",90],["Fer 7",84],["Fer 8",24],["Cobra1",156],["Bois 5",102],["Fer 8",23],["Cobra1",145],["Hybride 3",118],["Fer 8",21],["Fer 7",93],["Fer 8",32],["Cobra1",150],["Hybride 3",133],["Bois 5",90],["Fer 8",18],["Cobra1",115],["Bois 5",135],["Cobra1",142],["Hybride 3",149],["Bois 5",98],["SW56",32]],"putts":[2,2,1,2,1,2,2,2,2]},{"id":"2026-10-02|Golf Cacouna|rouge","date":"2026-10-02","course":"Golf Cacouna","tee":"rouge","seed":true,"shots":[["Cobra1",95],["Hybride 3",138],["SW56",59],["Cobra1",172],["Hybride 3",77],["Fer 7",108],["Cobra1",171],["Fer 7",94],["Fer 8",16],["Cobra1",190],["Fer 9",65],["Fer 8",29],["Fer 7",125],["Cobra1",171],["Hybride 3",143],["Fer 9",72],["Fer 8",10],["Cobra1",186],["PW",64],["Cobra1",145],["Hybride 3",149],["Fer 7",99],["Fer 8",28]],"putts":[1,3,1,2,2,2,1,2,1]}];
+// MES RONDES RÉELLES (récupérées du cell le 2026-10-08) : ajoutées à l'historique du cell une seule fois, sans doublon (même identifiant = ignoré).
+var SEED_TEST_ROUNDS = [{"id":"2026-09-16|Val-Neigette|seed","date":"2026-09-16","course":"Val-Neigette","seed":true,"shots":[["Bois 1",173],["Hybride 3",150],["PW",40],["PW",91],["SW",9],["Bois 1",144],["Hybride 3",142],["Fer 8",18],["Bois 1",181],["Hybride 3",122],["PW",-2],["Bois 1",169],["Hybride 3",120],["Bois 5",135],["PW",58],["Bois 5",111],["SW",1],["Bois 1",166],["Bois 5",87],["SW",60],["SW",10],["Fer 7",56],["PW",52],["SW",-7],["Bois 1",145],["Hybride 3",124],["Bois 5",79],["Bois 5",180],["Bois 1",139],["Hybride 3",102],["Fer 9",8],["Bois 1",147],["Bois 5",0],["Bois 5",118],["Bois 1",168],["Fer 8",59],["Bois 1",183],["Hybride 3",142],["Bois 5",116],["Fer 8",35],["Bois 1",109],["Hybride 3",160],["Fer 8",40],["Bois 5",128],["Fer 8",-20],["Bois 1",177],["Bois 5",124]],"putts":[3,2,2,3,2,2,2,3,3,3,3,2,2,2,2,2]},{"id":"2026-09-17|Golf Cacouna|seed","date":"2026-09-17","course":"Golf Cacouna","seed":true,"shots":[["Bois 1",11],["Hybride 3",122],["Hybride 3",65],["Fer 7",83],["Fer 8",11],["Bois 1",191],["SW",51],["Fer 7",83],["Fer 8",0],["Bois 1",2],["Hybride 3",144],["Bois 5",117],["SW",18],["Bois 1",132],["Bois 5",52],["PW",100],["Bois 5",125],["Bois 1",155],["Fer 7",115],["Fer 8",40],["Bois 1",0],["Hybride 3",125],["Bois 5",129],["Bois 1",135],["Hybride 3",87],["Hybride 3",112],["Fer 9",92]],"putts":[1,1,2,2,3,2,2,3,2]},{"id":"2026-09-21|Golf Cacouna|seed","date":"2026-09-21","course":"Golf Cacouna","seed":true,"shots":[["Bois 1",160],["Hybride 3",142],["SW",55],["Bois 1",75],["Hybride 3",221],["SW",56],["Fer 7",108],["Bois 1",148],["Hybride 3",173],["SW",63],["Bois 1",125],["Hybride 3",30],["Hybride 3",110],["SW",36],["Fer 8",20],["Bois 5",67],["PW",51],["SW",22],["Bois 1",148],["Hybride 3",74],["Hybride 3",45],["Bois 5",152],["SW",38],["Bois 1",130],["Hybride 3",100],["PW",76],["Fer 8",6],["Bois 1",101],["Hybride 3",181],["Hybride 3",80],["Fer 9",85],["Fer 8",39]],"putts":[3,3,3,2,2,1,2,2,2]},{"id":"2026-09-23|Golf Cacouna|seed","date":"2026-09-23","course":"Golf Cacouna","seed":true,"shots":[["Bois 1",154],["Hybride 3",133],["Fer 8",5],["Bois 1",177],["Fer 7",66],["Fer 8",6],["Fer 7",102],["Fer 8",6],["Bois 1",185],["Hybride 3",96],["Bois 1",151],["Fer 7",112],["SW",21],["Bois 5",104],["Fer 8",21],["Bois 1",119],["Hybride 3",78],["Bois 5",136],["PW",63],["Bois 1",116],["Bois 5",102],["Fer 8",32],["Bois 1",134],["Hybride 3",75],["Bois 5",53],["Bois 5",159]],"putts":[2,1,2,2,1,1,1,2,2]},{"id":"2026-09-25|Golf Cacouna|seed","date":"2026-09-25","course":"Golf Cacouna","seed":true,"shots":[["Cobra1",161],["Hybride 3",140],["Cobra1",152],["Hybride 3",169],["SW56",31],["Fer 7",87],["SW56",21],["Cobra1",171],["Hybride 3",150],["PW",63],["Cobra1",180],["Hybride 3",124],["Fer 8",17],["Bois 5",115],["Fer 8",0],["Fer 8",25],["Cobra1",187],["Hybride 3",140],["Bois 5",74],["SW56",31],["SW56",25],["Cobra1",126],["Hybride 3",72],["Fer 9",95],["Fer 8",19],["Cobra1",176],["Hybride 3",161],["Bois 5",107],["SW56",42],["Cobra1",179],["Hybride 3",149],["SW",18],["SW",6],["Fer 8",12],["Cobra1",156],["Hybride 3",152],["SW56",34],["Fer 7",85],["Fer 8",23],["Cobra1",178],["Hybride 3",83],["Fer 7",82],["Fer 8",13],["Cobra1",190],["Hybride 3",106],["SW56",43],["Hybride 3",146],["SW56",2],["SW56",-2],["SW56",16],["Cobra1",160],["Hybride 3",152],["Bois 5",109],["SW56",16],["Fer 8",32],["Cobra1",170],["Fer 9",75],["Fer 9",73],["Cobra1",165],["Hybride 3",83],["Bois 5",157],["Fer 7",88],["Fer 8",12]],"putts":[2,2,2,3,1,2,2,2,1,2,2,2,1,1,2,2,2]},{"id":"2026-09-27|Golf Cacouna|seed","date":"2026-09-27","course":"Golf Cacouna","seed":true,"shots":[["Cobra1",172],["Hybride 3",149],["SW56",36],["Cobra1",110],["Hybride 3",178],["PW",64],["Fer 7",108],["Cobra1",153],["Hybride 3",121],["Fer 7",67],["SW56",43],["Cobra1",123],["Hybride 3",169],["SW56",11],["Fer 8",18],["Bois 5",122],["Fer 8",18],["Cobra1",166],["Hybride 3",123],["Hybride 3",120],["SW56",48],["Cobra1",134],["Hybride 3",127],["SW56",51],["Cobra1",176],["Hybride 3",115],["Hybride 3",149],["SW56",46]],"putts":[2,2,2,3,2,2,4,4,3]},{"id":"2026-10-01|Golf Cacouna|seed","date":"2026-10-01","course":"Golf Cacouna","seed":true,"shots":[["Cobra1",153],["Hybride 3",123],["SW56",16],["Cobra1",159],["Fer 9",90],["Fer 7",84],["Fer 8",24],["Cobra1",156],["Bois 5",102],["Fer 8",23],["Cobra1",145],["Hybride 3",118],["Fer 8",21],["Fer 7",93],["Fer 8",32],["Cobra1",150],["Hybride 3",133],["Bois 5",90],["Fer 8",18],["Cobra1",115],["Bois 5",135],["Cobra1",142],["Hybride 3",149],["Bois 5",98],["SW56",32]],"putts":[2,2,1,2,1,2,2,2,2]},{"id":"2026-10-02|Golf Cacouna|rouge","date":"2026-10-02","course":"Golf Cacouna","seed":true,"shots":[["Cobra1",95],["Hybride 3",138],["SW56",59],["Cobra1",172],["Hybride 3",77],["Fer 7",108],["Cobra1",171],["Fer 7",94],["Fer 8",16],["Cobra1",190],["Fer 9",65],["Fer 8",29],["Fer 7",125],["Cobra1",171],["Hybride 3",143],["Fer 9",72],["Fer 8",10],["Cobra1",186],["PW",64],["Cobra1",145],["Hybride 3",149],["Fer 7",99],["Fer 8",28]],"putts":[1,3,1,2,2,2,1,2,1],"tee":"rouge"},{"id":"2026-10-05|Golf Cacouna|blanc","date":"2026-10-05","course":"Golf Cacouna","tee":"blanc","shots":[["Cobra1",137],["Hybride 3",145],["Fer 9",75],["Cobra1",129],["Hybride 3",177],["SW56",46],["Fer 7",75],["Fer 8",33],["Cobra1",210],["Hybride 3",104],["Fer 9",70],["Cobra1",162],["Hybride 3",141],["SW56",18],["Bois 5",120],["Fer 8",20],["Cobra1",155],["Hybride 3",134],["Hybride 3",146],["Fer 8",22],["Cobra1",106],["Hybride 3",141],["PW",65],["Cobra1",153],["Hybride 3",136],["Bois 5",167],["Fer 8",30]],"putts":[3,2,3,3,2,1,2,2,1]}];
+var SEED_FLAG = "calculDriveGPSSeedMerge_20261008";
 function loadHistory(){
   try{
-    var raw = localStorage.getItem(HISTORY_KEY);
+    var raw = localStorage.getItem(HISTORY_KEY), h;
     if(raw === null){
-      var h = SEED_TEST_ROUNDS.slice();
+      h = SEED_TEST_ROUNDS.slice();
       localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+      localStorage.setItem(SEED_FLAG, "1");
       return h;
     }
-    var arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
+    h = JSON.parse(raw);
+    if(!Array.isArray(h)) h = [];
+    if(localStorage.getItem(SEED_FLAG) !== "1"){
+      var ids = {};
+      h.forEach(function(r){ ids[r.id] = true; });
+      SEED_TEST_ROUNDS.forEach(function(r){ if(!ids[r.id]) h.push(r); });
+      h.sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+      localStorage.setItem(SEED_FLAG, "1");
+    }
+    return h;
   }catch(e){ return SEED_TEST_ROUNDS.slice(); }
 }
-function saveHistory(h){ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }catch(e){} }
+function frDate(iso){
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||""));
+  if(!m) return String(iso||"?");
+  var mois = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+  return parseInt(m[3],10)+" "+mois[parseInt(m[2],10)-1]+" "+m[1];
+}
+function backupBannerHTML(){
+  var b = loadBackup();
+  if(!b || roundHasData(ROUND)) return "";
+  var r = b.round, holes = 0, shots = 0;
+  Object.keys(r.holes).forEach(function(k){ var h = r.holes[k]; if(roundHasData({holes:{x:h}})){ holes++; shots += (h.shots||[]).length; } });
+  return "<div class='card' style='text-align:center;gap:8px;border:2px solid var(--accent)'>" +
+    "<div style='font-weight:900'>&#128190; Une ronde est sauvegardée</div>" +
+    "<div class='lead' style='font-size:.85rem'>"+frDate(r.date || (b.savedAt||"").slice(0,10))+" &middot; "+(r.course||"terrain ?")+" &middot; "+holes+" trou"+(holes>1?"s":"")+" &middot; "+shots+" coups</div>" +
+    "<button class='okbtn' onclick='App.restoreBackup()'>&#8617;&#65039; Restaurer cette ronde</button></div>";
+}
+// Rondes par date : une ligne par ronde (historique + ronde en cours), la plus récente en haut.
+function datesPanelHTML(){
+  var curId = currentRoundId(), cur = roundToEntry();
+  var rounds = loadHistory().filter(function(r){ return r.id !== curId; });
+  if(cur.shots.length > 0 || cur.putts.length > 0) { cur.enCours = true; rounds.push(cur); }
+  rounds.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+  var h = "<div class='card'><h2 style='font-size:.8rem'>Rondes par date</h2>";
+  if(!rounds.length) return h + "<div class='lead'>Aucune ronde enregistrée.</div></div>";
+  h += "<div class='lead' style='font-size:.8rem'>"+rounds.length+" ronde"+(rounds.length>1?"s":"")+" enregistrée"+(rounds.length>1?"s":"")+".</div>";
+  rounds.forEach(function(r){
+    var p = (r.putts||[]).filter(function(x){ return x !== null && x !== undefined; });
+    var pt = p.reduce(function(a,b){ return a + b; }, 0);
+    var tee = r.tee ? " &middot; départ "+teeLabelOf(r.tee) : "";
+    h += "<div style='border-top:1px solid #e3e8e4;padding:7px 0'>" +
+      "<div style='font-weight:800'>"+frDate(r.date)+(r.enCours?" <span style='color:var(--accent)'>(en cours)</span>":"")+"</div>" +
+      "<div class='lead' style='font-size:.82rem;margin:0'>"+(r.course||"?")+tee+"</div>" +
+      "<div style='font-size:.82rem'>"+p.length+" trou"+(p.length>1?"s":"")+" &middot; "+(r.shots||[]).length+" coups &middot; "+pt+" roulés"+(p.length?" (moy. "+(pt/p.length).toFixed(2)+" par trou)":"")+"</div>" +
+      (p.length ? "<div class='lead' style='font-size:.74rem;margin:0'>Roulés par trou : "+p.join(" - ")+"</div>" : "") + "</div>";
+  });
+  return h + "</div>";
+}function saveHistory(h){ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }catch(e){} }
 function currentRoundId(){ return (ROUND.date || todayISO()) + "|" + (ROUND.course || "") + "|" + (ROUND.tee || ""); }
 // Résume la ronde en cours : coups pleins [bâton, distance] + nombre de roulés par trou (le Putter hors du vert compte aussi).
 function roundToEntry(){
@@ -1218,7 +1400,7 @@ function roundToEntry(){
     var h = ROUND.holes[n], pc = 0;
     h.shots.forEach(function(s){
       if(s.club === "Putter") pc++;
-      else shots.push([s.club, s.before - s.after]);
+      else shots.push([s.club, s.before - s.after, s.before]);
     });
     pc += puttCount(h);
     if(h.shots.length>0 || pc>0) putts.push(pc);
@@ -1243,9 +1425,18 @@ function combinedData(){
   if(cur.shots.length > 0) rounds.push(cur);
   var shots = [], puttTotal = 0, puttHoles = 0;
   rounds.forEach(function(r){
-    (r.shots||[]).forEach(function(s){ if(CLUBS.indexOf(s[0]) >= 0 && s[1] > 0) shots.push({ club:s[0], dist:s[1] }); });
+    (r.shots||[]).forEach(function(s){ if(CLUBS.indexOf(s[0]) >= 0 && s[1] > 0) shots.push({ club:statClub(s[0], s[2] != null ? s[2] : s[1]), dist:s[1] }); });
     (r.putts||[]).forEach(function(p){ puttTotal += p; puttHoles++; });
   });
+  // [2026-10-04] Coup aberrant : un Hybride 3 à 221 v (lecture GPS fausse) est remplacé, dans les stats, par la moyenne des bons coups d'Hybride 3.
+  var aber = shots.filter(function(s){ return s.club === "Hybride 3" && s.dist === 221; });
+  if(aber.length){
+    var bons = shots.filter(function(s){ return s.club === "Hybride 3" && s.dist !== 221 && !isMissedShot("Hybride 3", s.dist); });
+    if(bons.length){
+      var moy = Math.round(bons.reduce(function(a,s){ return a + s.dist; }, 0) / bons.length);
+      aber.forEach(function(s){ s.dist = moy; });
+    }
+  }
   var curP = 0; cur.putts.forEach(function(p){ curP += p; });
   return { shots:shots, nHist:nHist, hasCurrent:cur.shots.length>0, curShots:cur.shots.length,
            puttAvg: puttHoles ? puttTotal/puttHoles : null, puttHoles:puttHoles,
@@ -1254,42 +1445,61 @@ function combinedData(){
 // Recommandation : parmi les coups RÉUSSIS (jamais les manqués), quel bâton a le plus souvent fait cette distance ?
 // Le driver (Cobra1) ne se joue que du tee : après le coup de départ, il n'est jamais recommandé.
 function recommendClubs(D, teeShot){
-  var shots = combinedData().shots;
-  var widths = [10, 15, 25];
+  var shots = combinedData().shots.filter(function(s){
+    if(isMissedShot(s.club, s.dist)) return false;
+    if(!teeShot && (s.club === "Cobra1" || s.club === "Bois 1")) return false;
+    if(s.club === FER8_NEAR && D > NEAR_GREEN_MAX_V) return false;
+    return true;
+  });
+  // On élargit la fenêtre (±10, ±15, ±25, ±40 v) jusqu'à avoir AU MOINS 2 bâtons à proposer.
+  var widths = [10, 15, 25, 40], list = [], usedW = widths[0];
   for(var w=0; w<widths.length; w++){
     var W = widths[w], rows = {};
+    usedW = W;
     shots.forEach(function(s){
-      if(isMissedShot(s.club, s.dist)) return;
-      if(!teeShot && (s.club === "Cobra1" || s.club === "Bois 1")) return;
       if(Math.abs(s.dist - D) > W) return;
-      var r = rows[s.club] || (rows[s.club] = { club:s.club, n:0, sum:0, min:9999, max:0 });
-      r.n++; r.sum += s.dist; r.min = Math.min(r.min, s.dist); r.max = Math.max(r.max, s.dist);
+      var r = rows[s.club] || (rows[s.club] = { club:s.club, n:0, sum:0 });
+      r.n++; r.sum += s.dist;
     });
-    var list = Object.keys(rows).map(function(c){ var r = rows[c]; r.avg = Math.round(r.sum/r.n); return r; });
-    if(list.length){
-      list.sort(function(a,b){ return (b.n - a.n) || (Math.abs(a.avg-D) - Math.abs(b.avg-D)); });
-      return { W:W, list:list.slice(0,3) };
-    }
+    list = Object.keys(rows).map(function(c){ var r = rows[c]; r.avg = Math.round(r.sum/r.n); return r; });
+    if(list.length >= 2) break;
   }
-  return { W:null, list:[] };
+  list.sort(function(a,b){ return (b.n - a.n) || (Math.abs(a.avg-D) - Math.abs(b.avg-D)); });
+  var fallback = false;
+  if(list.length < 2){
+    // Pas assez de coups réussis à cette distance : on complète avec les bâtons dont la moyenne est la plus proche.
+    var all = {};
+    shots.forEach(function(s){ var r = all[s.club] || (all[s.club] = { club:s.club, n:0, sum:0 }); r.n++; r.sum += s.dist; });
+    var have = {}; list.forEach(function(r){ have[r.club] = true; });
+    var extra = Object.keys(all).filter(function(c){ return !have[c]; }).map(function(c){ var r = all[c]; r.avg = Math.round(r.sum/r.n); return r; });
+    extra.sort(function(a,b){ return Math.abs(a.avg-D) - Math.abs(b.avg-D); });
+    while(list.length < 2 && extra.length){ list.push(extra.shift()); fallback = true; }
+  }
+  // Moyenne et meilleur coup = ceux du bâton sur TOUTES les rondes cumulées (précédentes + en cours), coups réussis seulement.
+  var tot = {};
+  shots.forEach(function(s){ var r = tot[s.club] || (tot[s.club] = { n:0, sum:0, best:0 }); r.n++; r.sum += s.dist; r.best = Math.max(r.best, s.dist); });
+  list.forEach(function(r){ var T = tot[r.club]; r.winN = r.n; r.allN = T.n; r.avg = Math.round(T.sum/T.n); r.best = T.best; });
+  return { W:usedW, list:list.slice(0,3), fallback:fallback };
 }
 function recoPanelHTML(D, teeShot){
   var rec = recommendClubs(D, teeShot);
   var h = "<div class='recopanel'><div class='recohead'>Il vous reste <b>"+D+" v</b></div>";
   if(!rec.list.length){
-    h += "<div class='lead' style='text-align:center'>Pas encore de coup réussi à cette distance dans vos rondes.</div></div>";
+    h += "<div class='lead' style='text-align:center'>Pas encore de coup réussi dans vos rondes pour proposer un bâton.</div></div>";
     return h;
   }
-  h += "<div class='lead' style='text-align:center;font-size:.78rem'>Coups réussis entre "+(D-rec.W)+" et "+(D+rec.W)+" v (les coups manqués ne comptent pas)</div>";
+  if(rec.fallback) h += "<div class='lead' style='text-align:center;font-size:.78rem'>Pas assez de coups réussis à cette distance : voici les bâtons dont la distance moyenne s'en rapproche le plus.</div>";
+  else h += "<div class='lead' style='text-align:center;font-size:.78rem'>Coups réussis entre "+(D-rec.W)+" et "+(D+rec.W)+" v (les coups manqués ne comptent pas)</div>";
+  var effSel = UI.pendingClub || defaultClubFor(getHole(ROUND.cur));
   rec.list.forEach(function(r, i){
-    h += "<button class='recorow"+(i===0?" top":"")+"' onclick='App.pickClub(\""+r.club+"\")'>" +
+    h += "<button class='recorow"+(i===0?" top":"")+(baseClub(r.club)===effSel?" sel":"")+"' onclick='App.pickClub(\""+baseClub(r.club)+"\")'>" +
       "<span class='rname'>"+(i===0?"&#11088; ":"")+clubLabel(r.club)+"</span>" +
-      "<span class='rinfo'>"+r.n+" coup"+(r.n>1?"s":"")+" &middot; moy. "+r.avg+" v</span></button>";
+      "<span class='rinfo'><span>moy. "+r.avg+" v &middot; meilleur "+r.best+" v</span><small>"+(rec.fallback ? r.allN+" coup"+(r.allN>1?"s":"")+" réussi"+(r.allN>1?"s":"")+" en tout" : r.winN+" coup"+(r.winN>1?"s":"")+" à cette distance (sur "+r.allN+")")+"</small></span></button>";
   });
-  h += "<div class='lead' style='text-align:center;font-size:.72rem'>Touchez un bâton pour le choisir.</div></div>";
+  var effReco = UI.pendingClub || defaultClubFor(getHole(ROUND.cur));
+  h += "<div class='recofoot'><span class='lead' style='font-size:.72rem'>Touchez un bâton pour le choisir.</span><button class='shotbtn recoshot'"+(!effReco?" disabled":"")+" onclick='App.lockShot()'>&#127934; Je Frappe</button></div></div>";
   return h;
-}
-function cumulPanelHTML(){
+}function cumulPanelHTML(){
   var d = combinedData();
   var total = d.nHist + (d.hasCurrent ? 1 : 0);
   var h = "<div class='card'><h2 style='font-size:.8rem'>Stats cumulées</h2>";
@@ -1302,14 +1512,15 @@ function cumulPanelHTML(){
     else { r.ok++; r.sum += s.dist; r.best = Math.max(r.best, s.dist); }
   });
   h += "<div class='cumgrid cumhead'><span>Bâton</span><span>Réussis</span><span>Moyenne</span><span>Meilleur</span><span>Manqués</span></div>";
-  CLUBS.forEach(function(c){
+  var order = []; CLUBS.forEach(function(c){ order.push(c); if(c === "Fer 8") order.push(FER8_NEAR); });
+  order.forEach(function(c){
     var r = by[c]; if(!r) return;
     h += "<div class='cumgrid'><span class='cn'>"+clubLabel(c)+"</span><span>"+r.ok+"</span><span>"+(r.ok?Math.round(r.sum/r.ok)+" v":"&ndash;")+"</span><span>"+(r.ok?r.best+" v":"&ndash;")+"</span><span class='"+(r.miss?"cm":"")+"'>"+r.miss+"</span></div>";
   });
   if(d.puttAvg !== null){
     h += "<div class='lead' style='text-align:center;margin-top:4px'>Roulés par trou : <b>"+d.puttAvg.toFixed(2)+"</b> en cumulé ("+d.puttHoles+" trous)"+(d.curPuttAvg!==null?" &middot; ronde en cours <b>"+d.curPuttAvg.toFixed(2)+"</b>":"")+"</div>";
   }
-  h += "<div class='lead' style='font-size:.72rem'>Moyenne et meilleur : coups réussis seulement. Manqué = sous le seuil du bâton (Cobra1 150 v, Hybride 3 125 v, Bois 5 100 v, Fer 7 85 v, Fer 9 100 v).</div>";
+  h += "<div class='lead' style='font-size:.72rem'>Moyenne et meilleur : coups réussis seulement. Manqué = sous le seuil du bâton (Cobra1 150 v, Hybride 3 125 v, Bois 5 100 v, Fer 7 85 v, Fer 9 100 v). « Fer 8 près vert » = Fer 8 joué à 50 v ou moins du vert (approche), compté à part et hors de la force du Fer 8.</div>";
   return h + "</div>";
 }
 
@@ -1324,7 +1535,7 @@ function summaryHTML(){
     h.shots.forEach(function(s){
       if(s.club === "Putter") return; // le Putter est résumé séparément (roulés/trou), pas en distance
       var dist = s.before - s.after;
-      addStat(s.club, dist);
+      addStat(statClub(s.club, s.before), dist);
     });
   });
   var clubs = Object.keys(agg);
@@ -1356,9 +1567,9 @@ function exportText(){
   // sinon une ronde exportée le lendemain portait la date du lendemain.
   var dateStr = ROUND.date || todayISO();
   var lines = [];
-  lines.push("Calcul de Drive - Ronde du "+dateStr);
+  lines.push("GolfGpsPlus - Ronde du "+dateStr);
   lines.push("Terrain : "+ROUND.course);
-  lines.push("Départ : "+(ROUND.tee==="rouge"?"Rouge":"Blanc"));
+  lines.push("Départ : "+teeLabelOf(ROUND.tee));
   lines.push("");
   var holeNums = Object.keys(ROUND.holes).map(Number).sort(function(a,b){ return a-b; });
   holeNums.forEach(function(n){
@@ -1621,7 +1832,7 @@ var Voice = {
   nextPrompt:function(){
     if(!ROUND.setupConfirmed){
       if(!ROUND.course) return "Quel terrain ?";
-      if(!ROUND.tee) return "Départ des blancs ou des rouges ?";
+      if(!ROUND.tee) return "Départ : "+teesText(ROUND.course)+" ?";
       return "Dis c'est parti pour commencer.";
     }
     var hd = getHole(ROUND.cur);
@@ -1692,6 +1903,9 @@ function parseVoice(txt){
     if(w === "note"){ var rest = tk.slice(i+1).join(" "); if(rest) cmds.push({type:"note", value:rest}); break; }
     // terrain / départ
     if(w === "cacouna" || w === "kakouna" || w === "cacona"){ cmds.push({type:"course", value:"Golf Cacouna"}); continue; }
+    if(w === "matane" || w === "matanne" || w === "matâne"){ cmds.push({type:"course", value:"Golf Matane"}); continue; }
+    if(w === "bleu" || w === "bleus" || w === "bleue" || w === "bleues"){ cmds.push({type:"tee", value:"bleu"}); continue; }
+    if(w === "riviere" || w === "rivière" || w === "loup"){ cmds.push({type:"course", value:"Golf Rivière-du-Loup"}); if(n1==="du" && n2==="loup") i+=2; continue; }
     if(w === "neigette" || w === "negette" || (w === "val" && (n1||"").indexOf("nei")===0)){ cmds.push({type:"course", value:"Val-Neigette"}); if(w==="val") i++; continue; }
     if(w === "blanc" || w === "blancs" || w === "blanche" || w === "blanches"){ cmds.push({type:"tee", value:"blanc"}); continue; }
     if(w === "rouge" || w === "rouges"){ cmds.push({type:"tee", value:"rouge"}); continue; }

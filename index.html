@@ -765,7 +765,17 @@ var App = {
   key:function(d){
     if(!UI.touched || UI.gpsFilled){ UI.digits=""; UI.touched=true; UI.gpsFilled=false; }
     if(UI.digits.length>=3) return;
-    UI.digits += d; render();
+    UI.digits += d;
+    // [2026-10-08] Roulés : dès que la case contient 2 chiffres, on l'enregistre et on passe tout de suite à la case suivante.
+    var hdk = getHole(ROUND.cur);
+    if(hdk.onGreen && !UI.locked && !UI.editingStart && UI.digits.length >= 2){
+      var pi = puttTargetIndex(hdk);
+      hdk.putts[pi] = parseInt(UI.digits, 10);
+      UI.puttTarget = (pi < 3) ? pi + 1 : 3;
+      UI.digits = ""; UI.touched = false;
+      saveRound(); render(); return;
+    }
+    render();
   },
   clearDigits:function(){
     UI.digits=""; UI.touched=true; UI.gpsFilled=false; render();
@@ -1020,7 +1030,7 @@ function gpsStatusHTML(hd){
 }
 
 // [2026-10-01] Date/heure de la dernière mise à jour — à changer à CHAQUE déploiement (sert à vérifier qu'on a la dernière version avec l'icône).
-var APP_VERSION_LABEL = "8 octobre 2026 à 18 h 05";
+var APP_VERSION_LABEL = "8 octobre 2026 à 18 h 11";
 var UPDATE_AVAILABLE = false;
 var UPDATE_MSG = "";
 function versionStampHTML(){

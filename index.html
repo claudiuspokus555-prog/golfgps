@@ -861,6 +861,33 @@ var App = {
   toggleReco:function(){ UI.showReco = !UI.showReco; if(!UI.showReco){ recoPrefSave({streak:0, auto:false}); } render(); },
   toggleCumul:function(){ UI.showCumul = !UI.showCumul; render(); },
   togglePrev:function(){ UI.showPrev = !UI.showPrev; render(); },
+  askDelRound:function(id){ UI.delId = id; UI.showPrev = true; render(); },
+  cancelDelRound:function(){ UI.delId = null; render(); },
+  confirmDelRound:function(){
+    try{
+      var h = loadHistory(), keep = [], gone = [];
+      h.forEach(function(r){ if(r.id === UI.delId) gone.push(r); else keep.push(r); });
+      if(gone.length){
+        var tr = []; try{ tr = JSON.parse(localStorage.getItem(TRASH_KEY) || "[]"); }catch(e){ tr = []; }
+        gone.forEach(function(r){ r.deletedAt = new Date().toISOString(); tr.push(r); });
+        localStorage.setItem(TRASH_KEY, JSON.stringify(tr));
+        saveHistory(keep);
+      }
+    }catch(e){}
+    UI.delId = null; render();
+  },
+  restoreRound:function(id){
+    try{
+      var tr = JSON.parse(localStorage.getItem(TRASH_KEY) || "[]"), back = null, left = [];
+      tr.forEach(function(r){ if(r.id === id && !back) back = r; else left.push(r); });
+      if(back){
+        delete back.deletedAt;
+        var h = loadHistory(); h.push(back); h.sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+        saveHistory(h); localStorage.setItem(TRASH_KEY, JSON.stringify(left));
+      }
+    }catch(e){}
+    render();
+  },
   toggleSummary:function(){ UI.showSummary = !UI.showSummary; render(); },
   retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
   wakeGPS:function(){ GPS.error=null; GPS.lastFix=null; UI.gpsFilled=false; if(!UI.touched) UI.digits=""; startGPSWatch(); render(); },
@@ -1031,7 +1058,7 @@ function gpsStatusHTML(hd){
 }
 
 // [2026-10-01] Date/heure de la dernière mise à jour — à changer à CHAQUE déploiement (sert à vérifier qu'on a la dernière version avec l'icône).
-var APP_VERSION_LABEL = "9 octobre 2026 à 8 h 45";
+var APP_VERSION_LABEL = "9 octobre 2026 à 10 h 05";
 var UPDATE_AVAILABLE = false;
 var UPDATE_MSG = "";
 function versionStampHTML(){
@@ -1404,6 +1431,8 @@ function datesPanelHTML(){
 }function saveHistory(h){ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }catch(e){} }
 
 // [2026-10-09] Écrans d'ouverture : toutes les rondes précédentes en détail (coups dans l'ordre, moyenne par bâton, roulés par trou).
+var TRASH_KEY = "calculDriveGPSTrash_v1";
+function licEscAttr(s){ return String(s).replace(/&/g,"&amp;").replace(/'/g,"&#39;").replace(/"/g,"&quot;"); }
 function prevRoundsHTML(){
   var h = "<button class='btn-ghost' style='margin-bottom:6px;width:100%;font-weight:800' onclick='App.togglePrev()'>&#128218; "+(UI.showPrev?"Cacher mes rondes précédentes":"Voir mes rondes précédentes (détail complet)")+"</button>";
   if(!UI.showPrev) return h;
@@ -1416,7 +1445,7 @@ function prevRoundsHTML(){
     var pt = p.reduce(function(a,b){ return a + b; }, 0);
     var byClub = {}, order = [];
     shots.forEach(function(s){ if(!byClub[s[0]]){ byClub[s[0]] = []; order.push(s[0]); } byClub[s[0]].push(s[1]); });
-    h += "<details style='border-top:1px solid #e3e8e4;padding:7px 0'>";
+    h += "<details"+(UI.delId === r.id ? " open" : "")+" style='border-top:1px solid #e3e8e4;padding:7px 0'>";
     h += "<summary style='font-weight:800;cursor:pointer'>"+frDate(r.date)+" &middot; "+(r.course||"?")+(r.tee?" &middot; départ "+teeLabelOf(r.tee):"")+"</summary>";
     h += "<div style='font-size:.82rem;margin:6px 0'>"+shots.length+" coups &middot; "+p.length+" trou"+(p.length>1?"s":"")+" &middot; "+pt+" roulés"+(p.length?" (moy. "+(pt/p.length).toFixed(2)+" par trou)":"")+"</div>";
     if(order.length){
@@ -1428,8 +1457,24 @@ function prevRoundsHTML(){
       h += "</div>";
     }
     if(p.length) h += "<div style='font-size:.82rem;font-weight:800;margin-top:6px'>Roulés par trou</div><div style='font-size:.82rem'>"+p.join(" - ")+"</div>";
+    if(UI.delId === r.id){
+      h += "<div style='margin-top:10px;padding:10px;border:2px solid #c0392b;border-radius:10px;text-align:center'>" +
+        "<div style='font-weight:800;color:#c0392b'>Supprimer la ronde du "+frDate(r.date)+" ?</div>" +
+        "<div class='lead' style='font-size:.8rem'>Elle sera mise de côté dans « Rondes supprimées » : vous pourrez la restaurer.</div>" +
+        "<div style='display:flex;gap:8px;margin-top:6px'><button class='btn-ghost redtext' style='flex:1' onclick='App.confirmDelRound()'>Oui, supprimer</button><button class='btn-ghost' style='flex:1' onclick='App.cancelDelRound()'>Annuler</button></div></div>";
+    } else {
+      h += "<button class='btn-ghost redtext btn-sm2' style='margin-top:10px' data-id='"+licEscAttr(r.id)+"' onclick='App.askDelRound(this.getAttribute(\"data-id\"))'>&#128465; Supprimer cette ronde</button>";
+    }
     h += "</details>";
   });
+  var trash = []; try{ trash = JSON.parse(localStorage.getItem(TRASH_KEY) || "[]"); }catch(e){ trash = []; }
+  if(trash.length){
+    h += "<div style='border-top:1px solid #e3e8e4;margin-top:8px;padding-top:8px'><div style='font-weight:800;font-size:.85rem'>Rondes supprimées ("+trash.length+")</div>";
+    trash.forEach(function(r){
+      h += "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.82rem;margin-top:4px'><span>"+frDate(r.date)+" &middot; "+(r.course||"?")+"</span><button class='btn-ghost btn-sm2' style='width:auto;padding:4px 10px' data-id='"+licEscAttr(r.id)+"' onclick='App.restoreRound(this.getAttribute(\"data-id\"))'>&#8617;&#65039; Restaurer</button></div>";
+    });
+    h += "</div>";
+  }
   return h + "</div>";
 }
 function currentRoundId(){ return (ROUND.date || todayISO()) + "|" + (ROUND.course || "") + "|" + (ROUND.tee || ""); }

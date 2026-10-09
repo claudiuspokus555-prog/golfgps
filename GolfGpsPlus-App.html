@@ -1160,56 +1160,84 @@ function checkForUpdate(){
   }catch(e){}
 }
 document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkForUpdate(); });
-// ---------------- [2026-10-03] Licence : code d'activation personnel (hors-ligne) ----------------
-// Le code est généré par l'outil Generateur-Codes-GolfGPS.html (même clé secrète). Il contient le nom + courriel de l'acheteur.
-var LIC_KEY = "golfgps_licence_v1";
-var LIC_SECRET = "Gghwaselc1f3gozmvd96j7xyPx";
-function licHash(str){
-  var h1 = 0xdeadbeef ^ 7, h2 = 0x41c6ce57 ^ 7;
-  for(var i=0;i<str.length;i++){ var ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
-  h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
-  return ((h2>>>0).toString(36) + (h1>>>0).toString(36)).toUpperCase().slice(0,8);
+// ---------------- [2026-10-09] Licence : validation par le serveur Cloudflare (2 appareils max par code) ----------------
+// Le code d'activation est généré par Generateur-Codes-GolfGPS.html (serveur). Aucune clé secrète n'est dans ce fichier.
+var LIC_KEY = "golfgpsplus_licence_v2";
+var LIC_API = "https://golfgpsplus-licence.golfgpsplus.workers.dev";
+var LIC_GRACE_MS = 30*24*3600*1000;    // hors-ligne toléré 30 jours après la dernière vérification
+var LIC_RECHECK_MS = 3*24*3600*1000;   // revérification en ligne (en arrière-plan) tous les 3 jours
+function licDevice(){
+  try{
+    var d = localStorage.getItem("golfgpsplus_device");
+    if(!d || d.length<16){
+      var a = new Uint8Array(12); (window.crypto||window.msCrypto).getRandomValues(a); d = "";
+      for(var i=0;i<a.length;i++) d += ("0"+a[i].toString(16)).slice(-2);
+      localStorage.setItem("golfgpsplus_device", d);
+    }
+    return d;
+  }catch(e){ return "sansstockage-"+String(navigator.userAgent||"").length; }
 }
-function licDecodePayload(p){
-  try{ var b = p.replace(/-/g,"+").replace(/_/g,"/"); while(b.length%4) b += "=";
-    var bin = atob(b), bytes = ""; for(var i=0;i<bin.length;i++) bytes += "%" + ("0"+bin.charCodeAt(i).toString(16)).slice(-2);
-    return decodeURIComponent(bytes); }catch(e){ return null; }
+function licCall(code, cb){   // cb(reponse) ; reponse.net = true si le serveur est injoignable
+  var done = false;
+  var t = setTimeout(function(){ if(!done){ done = true; cb({ok:false, net:true}); } }, 12000);
+  function fin(j){ if(done) return; done = true; clearTimeout(t); cb(j); }
+  try{
+    fetch(LIC_API+"/activate", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({code:code, device:licDevice()})})
+      .then(function(r){ return r.json(); })
+      .then(function(j){ fin(j); })
+      .catch(function(){ fin({ok:false, net:true}); });
+  }catch(e){ fin({ok:false, net:true}); }
 }
-function licCheck(code){
-  code = String(code||"").replace(/\s+/g,"");
-  var i = code.lastIndexOf("."); if(i<1) return null;
-  var p = code.slice(0,i), sig = code.slice(i+1).toUpperCase();
-  if(licHash(p + LIC_SECRET) !== sig) return null;
-  var s = licDecodePayload(p); if(!s) return null;
-  var parts = s.split("|"); if(!parts[0]) return null;
-  return {nom:parts[0], email:parts[1]||"", code:code};
+function licLoad(){
+  try{
+    var o = JSON.parse(localStorage.getItem(LIC_KEY) || "null");
+    if(o && o.code && o.nom && (Date.now() - (o.lastOk||0)) < LIC_GRACE_MS) return {nom:o.nom, code:o.code, lastOk:o.lastOk};
+  }catch(e){}
+  return null;
 }
-function licLoad(){ try{ return licCheck(localStorage.getItem(LIC_KEY)); }catch(e){ return null; } }
+function licSave(code, nom){ try{ localStorage.setItem(LIC_KEY, JSON.stringify({code:code, nom:nom, lastOk:Date.now()})); }catch(e){} }
 function licEsc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function licErrText(j){
+  if(j && j.net) return "Connexion Internet requise pour l'activation (une seule fois). Réessayez avec le réseau.";
+  if(j && j.err==="inconnu") return "Code inconnu. Vérifiez qu'il est copié en entier, sans espace ajouté.";
+  if(j && j.err==="revoque") return "Ce code a été désactivé. Écrivez-nous : golfgpsplus@gmail.com";
+  if(j && j.err==="max") return "Ce code est déjà utilisé sur "+(j.max||2)+" appareils. Écrivez-nous pour en changer : golfgpsplus@gmail.com";
+  return "Code invalide. Vérifiez qu'il est copié en entier.";
+}
 var LIC = licLoad();
-(function(){ // activation automatique par lien : ...html#code=XXXX
+var LIC_MSG = "";
+if(LIC && (Date.now() - LIC.lastOk) > LIC_RECHECK_MS){   // revérification discrète ; si le code a été désactivé, retour à l'écran d'activation
+  licCall(LIC.code, function(j){
+    if(j.ok){ licSave(LIC.code, j.nom); }
+    else if(!j.net){ try{ localStorage.removeItem(LIC_KEY); }catch(e){} location.reload(); }
+  });
+}
+(function(){ // activation automatique par lien : ...html#code=XXXX-XXXX-XXXX-XXXX
   if(LIC) return;
   var m = (location.hash||"").match(/code=([^&]+)/); if(!m) return;
-  var l = licCheck(decodeURIComponent(m[1]));
-  if(l){ try{ localStorage.setItem(LIC_KEY, l.code); LIC = l; history.replaceState(null,"",location.pathname+location.search); }catch(e){} }
+  var c = decodeURIComponent(m[1]);
+  licCall(c, function(j){
+    if(j.ok){ licSave(c, j.nom); try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} location.reload(); }
+    else { LIC_MSG = licErrText(j); render(); }
+  });
 })();
-var LIC_MSG = "";
 function licActivate(){
-  var v = document.getElementById("lic-input").value;
-  var l = licCheck(v);
-  if(!l){ LIC_MSG = "Code invalide. Vérifiez qu'il est copié en entier, sans espace ajouté."; render(); return; }
-  try{ localStorage.setItem(LIC_KEY, l.code); }catch(e){}
-  location.reload();
-}
-function licScreenHTML(){
+  var v = String(document.getElementById("lic-input").value||"").replace(/\s+/g,"");
+  var msg = document.getElementById("lic-msg");
+  if(!v){ if(msg) msg.textContent = "Collez d'abord votre code d'activation."; return; }
+  if(msg){ msg.style.color = "var(--text)"; msg.textContent = "Vérification en cours…"; }
+  licCall(v, function(j){
+    if(j.ok){ licSave(v, j.nom); location.reload(); }
+    else if(msg){ msg.style.color = "#c0392b"; msg.textContent = licErrText(j); }
+  });
+}function licScreenHTML(){
   return "<div style='max-width:460px;margin:30px auto 0;text-align:center'>" +
     "<div style='font-size:2.2rem'>&#9971;</div>" +
     "<div style='font-weight:900;font-size:1.3rem;color:var(--text);margin:6px 0'>Activation de GolfGpsPlus</div>" +
-    "<div class='lead' style='text-align:center'>Collez ici le code d'activation reçu après votre paiement. Il est personnel : il porte votre nom.</div>" +
+    "<div class='lead' style='text-align:center'>Collez ici le code d'activation reçu après votre paiement. Il est personnel et limité à 2 appareils.</div>" +
     "<textarea id='lic-input' autocomplete='off' autocapitalize='off' spellcheck='false' style='width:100%;min-height:96px;margin:10px 0;padding:10px;border-radius:10px;border:1.75px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace;font-size:.85rem'></textarea>" +
     "<button class='okbtn' onclick='licActivate()'>&#9989; Activer</button>" +
-    (LIC_MSG ? "<div style='color:#c0392b;font-weight:800;margin-top:10px'>"+LIC_MSG+"</div>" : "") +
+    "<div id='lic-msg' style='color:#c0392b;font-weight:800;margin-top:10px'>"+licEsc(LIC_MSG)+"</div>" +
     "</div>";
 }
 function licLineHTML(){

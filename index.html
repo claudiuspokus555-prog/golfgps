@@ -860,6 +860,7 @@ var App = {
   toggleExport:function(){ if(!UI.showExport) archiveCurrentRound(); UI.showExport = !UI.showExport; render(); },
   toggleReco:function(){ UI.showReco = !UI.showReco; if(!UI.showReco){ recoPrefSave({streak:0, auto:false}); } render(); },
   toggleCumul:function(){ UI.showCumul = !UI.showCumul; render(); },
+  togglePrev:function(){ UI.showPrev = !UI.showPrev; render(); },
   toggleSummary:function(){ UI.showSummary = !UI.showSummary; render(); },
   retryGPS:function(){ GPS.error=null; startGPSWatch(); render(); },
   wakeGPS:function(){ GPS.error=null; GPS.lastFix=null; UI.gpsFilled=false; if(!UI.touched) UI.digits=""; startGPSWatch(); render(); },
@@ -1030,7 +1031,7 @@ function gpsStatusHTML(hd){
 }
 
 // [2026-10-01] Date/heure de la dernière mise à jour — à changer à CHAQUE déploiement (sert à vérifier qu'on a la dernière version avec l'icône).
-var APP_VERSION_LABEL = "8 octobre 2026 à 18 h 11";
+var APP_VERSION_LABEL = "9 octobre 2026 à 8 h 45";
 var UPDATE_AVAILABLE = false;
 var UPDATE_MSG = "";
 function versionStampHTML(){
@@ -1074,12 +1075,14 @@ function render(){
   var html = "";
 
   var isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  html += "<div style='display:flex;justify-content:flex-end'>";
-  html += "<button class='btn-ghost btn-sm2' style='width:auto;padding:4px 10px' onclick='App.toggleFullscreen()'>"+(isFS?"&#8601; Quitter le plein écran":"&#10021; Plein écran")+"</button>";
+  var opening = !ROUND.mode || !ROUND.setupConfirmed;   // [2026-10-09] écrans d'ouverture : bouton plein écran large et visible dès le départ
+  html += "<div style='display:flex;justify-content:"+(opening?"stretch":"flex-end")+"'>";
+  html += "<button class='btn-ghost"+(opening?"":" btn-sm2")+"' style='"+(opening?"width:100%;padding:12px;font-weight:900;font-size:1rem":"width:auto;padding:4px 10px")+"' onclick='App.toggleFullscreen()'>"+(isFS?"&#8601; Quitter le plein écran":"&#10021; Plein écran")+"</button>";
   html += "</div>";
 
   if(!ROUND.mode){
     html += updateBannerHTML();
+    html += prevRoundsHTML();
     html += "<div class='lead' style='text-align:center;font-weight:900;font-size:1.05rem;color:var(--text)'>Quelle version voulez-vous utiliser aujourd'hui ?</div>";
     html += "<button class='modebtn' onclick='App.chooseMode(\"complete\")'><span class='mt'>&#9997;&#65039; Complète</span><span class='md'>La version actuelle, sans changement : bâton, où est tombée la balle, distance.</span></button>";
     html += "<button class='modebtn' onclick='App.chooseMode(\"allegee\")'><span class='mt'>&#9889; Allégée</span><span class='md'>Moins de clics : pas de question « où est tombée votre balle ». Bâton &rarr; Je Frappe &rarr; distance. GPS éteint pendant que tu marches : touche « rendu à votre balle » pour l'allumer.</span></button>";
@@ -1093,6 +1096,7 @@ function render(){
 
   if(!ROUND.setupConfirmed){
     html += updateBannerHTML();
+    html += prevRoundsHTML();
     html += backupBannerHTML();
     if(!(ROUND.course && ROUND.tee)){
       html += "<div class='lead' style='text-align:center;font-weight:800'>Choisissez votre terrain et votre départ"+" ("+teesText(ROUND.course)+")"+"</div>";
@@ -1398,6 +1402,36 @@ function datesPanelHTML(){
   });
   return h + "</div>";
 }function saveHistory(h){ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }catch(e){} }
+
+// [2026-10-09] Écrans d'ouverture : toutes les rondes précédentes en détail (coups dans l'ordre, moyenne par bâton, roulés par trou).
+function prevRoundsHTML(){
+  var h = "<button class='btn-ghost' style='margin-bottom:6px;width:100%;font-weight:800' onclick='App.togglePrev()'>&#128218; "+(UI.showPrev?"Cacher mes rondes précédentes":"Voir mes rondes précédentes (détail complet)")+"</button>";
+  if(!UI.showPrev) return h;
+  var rounds = loadHistory().slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+  if(!rounds.length) return h + "<div class='card'><div class='lead'>Aucune ronde enregistrée.</div></div>";
+  h += "<div class='card'><h2 style='font-size:.8rem'>Mes rondes précédentes</h2><div class='lead' style='font-size:.8rem'>"+rounds.length+" ronde"+(rounds.length>1?"s":"")+". Touchez une ronde pour voir le détail complet.</div>";
+  rounds.forEach(function(r){
+    var shots = r.shots || [];
+    var p = (r.putts||[]).filter(function(x){ return x !== null && x !== undefined; });
+    var pt = p.reduce(function(a,b){ return a + b; }, 0);
+    var byClub = {}, order = [];
+    shots.forEach(function(s){ if(!byClub[s[0]]){ byClub[s[0]] = []; order.push(s[0]); } byClub[s[0]].push(s[1]); });
+    h += "<details style='border-top:1px solid #e3e8e4;padding:7px 0'>";
+    h += "<summary style='font-weight:800;cursor:pointer'>"+frDate(r.date)+" &middot; "+(r.course||"?")+(r.tee?" &middot; départ "+teeLabelOf(r.tee):"")+"</summary>";
+    h += "<div style='font-size:.82rem;margin:6px 0'>"+shots.length+" coups &middot; "+p.length+" trou"+(p.length>1?"s":"")+" &middot; "+pt+" roulés"+(p.length?" (moy. "+(pt/p.length).toFixed(2)+" par trou)":"")+"</div>";
+    if(order.length){
+      h += "<div style='font-size:.82rem;font-weight:800;margin-top:4px'>Moyenne par bâton</div><div style='font-size:.82rem;line-height:1.5'>";
+      order.forEach(function(c){ var a = byClub[c], m = Math.round(a.reduce(function(x,y){ return x + y; }, 0) / a.length); h += c + " : <b>"+m+" v</b> ("+a.length+" coup"+(a.length>1?"s":"")+")<br>"; });
+      h += "</div>";
+      h += "<div style='font-size:.82rem;font-weight:800;margin-top:6px'>Tous les coups, dans l'ordre</div><div style='font-size:.82rem;line-height:1.5'>";
+      h += shots.map(function(s,i){ return (i+1)+". "+s[0]+" &mdash; <b>"+s[1]+" v</b>"; }).join("<br>");
+      h += "</div>";
+    }
+    if(p.length) h += "<div style='font-size:.82rem;font-weight:800;margin-top:6px'>Roulés par trou</div><div style='font-size:.82rem'>"+p.join(" - ")+"</div>";
+    h += "</details>";
+  });
+  return h + "</div>";
+}
 function currentRoundId(){ return (ROUND.date || todayISO()) + "|" + (ROUND.course || "") + "|" + (ROUND.tee || ""); }
 // Résume la ronde en cours : coups pleins [bâton, distance] + nombre de roulés par trou (le Putter hors du vert compte aussi).
 function roundToEntry(){

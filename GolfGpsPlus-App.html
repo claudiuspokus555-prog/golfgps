@@ -1160,7 +1160,7 @@ function checkForUpdate(){
   }catch(e){}
 }
 document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkForUpdate(); });
-// ---------------- [2026-10-09] Licence : validation par le serveur Cloudflare (2 appareils max par code) ----------------
+// ---------------- [2026-10-09] Licence : validation par le serveur Cloudflare (limite par code gérée côté serveur) ----------------
 // Le code d'activation est généré par Generateur-Codes-GolfGPS.html (serveur). Aucune clé secrète n'est dans ce fichier.
 var LIC_KEY = "golfgpsplus_licence_v2";
 var LIC_API = "https://golfgpsplus-licence.golfgpsplus.workers.dev";
@@ -1201,7 +1201,7 @@ function licErrText(j){
   if(j && j.net) return "Connexion Internet requise pour l'activation (une seule fois). Réessayez avec le réseau.";
   if(j && j.err==="inconnu") return "Code inconnu. Vérifiez qu'il est copié en entier, sans espace ajouté.";
   if(j && j.err==="revoque") return "Ce code a été désactivé. Écrivez-nous : golfgpsplus@gmail.com";
-  if(j && j.err==="max") return "Ce code est déjà utilisé sur "+(j.max||2)+" appareils. Écrivez-nous pour en changer : golfgpsplus@gmail.com";
+  if(j && j.err==="max") return "Ce code ne peut pas être activé sur cet appareil. Écrivez-nous : golfgpsplus@gmail.com";
   return "Code invalide. Vérifiez qu'il est copié en entier.";
 }
 var LIC = licLoad();
@@ -1234,7 +1234,7 @@ function licActivate(){
   return "<div style='max-width:460px;margin:30px auto 0;text-align:center'>" +
     "<div style='font-size:2.2rem'>&#9971;</div>" +
     "<div style='font-weight:900;font-size:1.3rem;color:var(--text);margin:6px 0'>Activation de GolfGpsPlus</div>" +
-    "<div class='lead' style='text-align:center'>Collez ici le code d'activation reçu après votre paiement. Il est personnel et limité à 2 appareils.</div>" +
+    "<div class='lead' style='text-align:center'>Collez ici le code d'activation reçu après votre paiement. Il est personnel et réservé à votre usage.</div>" +
     "<textarea id='lic-input' autocomplete='off' autocapitalize='off' spellcheck='false' style='width:100%;min-height:96px;margin:10px 0;padding:10px;border-radius:10px;border:1.75px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace;font-size:.85rem'></textarea>" +
     "<button class='okbtn' onclick='licActivate()'>&#9989; Activer</button>" +
     "<div id='lic-msg' style='color:#c0392b;font-weight:800;margin-top:10px'>"+licEsc(LIC_MSG)+"</div>" +

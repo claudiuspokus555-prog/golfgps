@@ -205,6 +205,15 @@ var COURSES = {
       blanc: [315,472,373,100,304,346,482,138,323, 118,528,312,311,276,476,309,158,301],
       rouge: [289,399,348,68,245,270,371,98,258, 107,434,262,218,224,372,247,93,266]
     }
+  },
+  // [2026-10-10] Carte du terrain : normales 37 + 35 = 72 ; bleu 6205, blanc 5876 et rouge 4746 verges.
+  "Club de Golf de la Vallée du Témiscouata": {
+    pars: [4,4,5,4,4,5,4,3,4, 5,3,4,4,3,4,5,4,3],
+    tees: {
+      bleu:  [363,431,514,324,319,532,400,137,324, 540,151,329,377,111,325,468,409,151],
+      blanc: [335,402,485,306,311,496,388,120,302, 519,145,324,344,102,317,460,385,135],
+      rouge: [256,340,394,252,242,403,298,83,275, 421,113,267,289,89,231,378,298,117]
+    }
   }
 };
 // [2026-10-03] Départs : bleu, blanc, rouge (les terrains n'ont pas tous le bleu)
@@ -327,6 +336,27 @@ var PIN_SEED = {
     "16": {lat:48.360733, lon:-68.490553},
     "17": {lat:48.362017, lon:-68.489311},
     "18": {lat:48.363711, lon:-68.482967}
+  },
+  // [2026-10-10] Centre de chaque vert relevé sur Google Earth (fichier KML « Club de Golf de la Vallée du Témiscouata »).
+  "Club de Golf de la Vallée du Témiscouata": {
+    "1":  {lat:47.678658, lon:-68.950294},
+    "2":  {lat:47.680242, lon:-68.945344},
+    "3":  {lat:47.676357, lon:-68.948956},
+    "4":  {lat:47.673064, lon:-68.949594},
+    "5":  {lat:47.671653, lon:-68.952615},
+    "6":  {lat:47.675216, lon:-68.949558},
+    "7":  {lat:47.679078, lon:-68.946736},
+    "8":  {lat:47.678670, lon:-68.949304},
+    "9":  {lat:47.676529, lon:-68.952557},
+    "10": {lat:47.672197, lon:-68.956389},
+    "11": {lat:47.671639, lon:-68.953597},
+    "12": {lat:47.671951, lon:-68.950000},
+    "13": {lat:47.670212, lon:-68.953297},
+    "14": {lat:47.669569, lon:-68.955755},
+    "15": {lat:47.667284, lon:-68.958996},
+    "16": {lat:47.669990, lon:-68.956366},
+    "17": {lat:47.674893, lon:-68.953182},
+    "18": {lat:47.676048, lon:-68.953318}
   },
   "Golf Cacouna": {
     "1":  {lat:47.920853, lon:-69.493684},
@@ -1060,7 +1090,7 @@ function gpsStatusHTML(hd){
 }
 
 // [2026-10-01] Date/heure de la dernière mise à jour — à changer à CHAQUE déploiement (sert à vérifier qu'on a la dernière version avec l'icône).
-var APP_VERSION_LABEL = "9 octobre 2026 à 11 h 45";
+var APP_VERSION_LABEL = "10 octobre 2026 à 15 h 23";
 var UPDATE_AVAILABLE = false;
 var UPDATE_MSG = "";
 function versionStampHTML(){
@@ -1994,6 +2024,7 @@ function parseVoice(txt){
     if(w === "bleu" || w === "bleus" || w === "bleue" || w === "bleues"){ cmds.push({type:"tee", value:"bleu"}); continue; }
     if(w === "riviere" || w === "rivière" || w === "loup"){ cmds.push({type:"course", value:"Golf Rivière-du-Loup"}); if(n1==="du" && n2==="loup") i+=2; continue; }
     if(w === "neigette" || w === "negette" || (w === "val" && (n1||"").indexOf("nei")===0)){ cmds.push({type:"course", value:"Val-Neigette"}); if(w==="val") i++; continue; }
+    if(w === "temiscouata" || w === "témiscouata" || w === "temiscouta" || w === "temis"){ cmds.push({type:"course", value:"Club de Golf de la Vallée du Témiscouata"}); continue; }
     if(w === "blanc" || w === "blancs" || w === "blanche" || w === "blanches"){ cmds.push({type:"tee", value:"blanc"}); continue; }
     if(w === "rouge" || w === "rouges"){ cmds.push({type:"tee", value:"rouge"}); continue; }
     if((w === "c" && n1 === "est" && (n2 === "parti" || n2 === "partie")) ){ cmds.push({type:"go"}); i+=2; continue; }

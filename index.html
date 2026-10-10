@@ -590,6 +590,8 @@ if(!hasAnyShots){
   ROUND.setupConfirmed = false;
   ROUND.mode = null;
   ROUND.date = null;
+  ROUND.runId = newRunId();
+  ROUND.pendingNine = false;
 } else if(ROUND.setupConfirmed === undefined){
   ROUND.setupConfirmed = true;
 }
@@ -688,6 +690,7 @@ var App = {
     if(!App.guardRound("le départ")) return;
     ROUND.tee = t;
     ROUND.holes = {};
+    ROUND.runId = newRunId(); ROUND.pendingNine = false;
     saveRound(); render();
   },
   setCourse:function(c){
@@ -696,6 +699,7 @@ var App = {
     ROUND.course = c;
     if(ROUND.tee && teesOfCourse(c).indexOf(ROUND.tee) < 0) ROUND.tee = null;
     ROUND.holes = {};
+    ROUND.runId = newRunId(); ROUND.pendingNine = false;
     saveRound(); render();
   },
   chooseMode:function(m){
@@ -840,10 +844,32 @@ var App = {
   registerPutts:function(){
     commitPuttEdit();
     UI.puttTarget=null; UI.digits=""; UI.touched=false;
+    // [2026-10-10] Après le 9e trou : on demande si on continue ou si c'est terminé pour aujourd'hui (rondes de 9 trous).
+    // La question revient à chaque « Terminer » du trou 9 tant qu'aucun trou après le 9e n'a été joué.
+    var playedAfterNine = Object.keys(ROUND.holes).some(function(k){ var hh = ROUND.holes[k]; return Number(k) > 9 && (hh.shots.length>0 || hh.onGreen); });
+    if(ROUND.cur===9 && !playedAfterNine){
+      ROUND.pendingNine = true;
+      gpsNap(); saveRound(); render(); window.scrollTo(0,0);
+      return;
+    }
     if(ROUND.cur<18){ ROUND.cur++; UI.pendingClub=null; UI.locked=null; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null; }
     gpsNap();
     saveRound(); render();
     window.scrollTo(0,0);
+  },
+  nineContinue:function(){
+    ROUND.pendingNine = false;
+    if(ROUND.cur<18){ ROUND.cur++; UI.pendingClub=null; UI.locked=null; UI.gpsFilled=false; UI.awaitingSpot=false; UI.spotForShot=null; }
+    gpsNap(); saveRound(); render(); window.scrollTo(0,0);
+  },
+  nineDone:function(){
+    // « Terminé pour aujourd'hui » : la ronde est rangée dans l'historique, puis on ouvre « Fin / Exporter » (résumé + courriel).
+    ROUND.pendingNine = false;
+    archiveCurrentRound();
+    UI.showExport = true; UI.showSummary = true;
+    saveRound(); render();
+    var ex = document.getElementById("export-text");
+    if(ex && ex.scrollIntoView){ try{ ex.scrollIntoView({block:"center"}); }catch(e){} }
   },
   undoLastShot:function(){
     var hd = getHole(ROUND.cur);
@@ -878,12 +904,13 @@ var App = {
   cancelResetRound:function(){
     UI.confirmingReset = false; render();
   },
-  resetRound:function(){
-    archiveCurrentRound();
+  // keep === false : « ne rien garder » (la ronde sort de l'historique et des stats) ; sinon elle est gardée dans l'historique.
+  resetRound:function(keep){
+    if(keep === false) discardCurrentRound(); else archiveCurrentRound();
     try{ localStorage.removeItem(BACKUP_KEY); }catch(e){}
     Voice.stop();
     stopGPSWatch();
-    ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{}, mode:null, date:null };
+    ROUND = { tee:null, course:null, setupConfirmed:false, cur:1, holes:{}, mode:null, date:null, runId:newRunId() };
     UI = { showReco:recoPrefLoad().auto, pendingClub:null, locked:null, digits:"", touched:false, gpsFilled:false, puttTarget:null, showExport:false, showSummary:true, confirmingReset:false, editingStart:false, awaitingSpot:false, spotForShot:null };
     saveRound(); render();
   },
@@ -1090,7 +1117,7 @@ function gpsStatusHTML(hd){
 }
 
 // [2026-10-01] Date/heure de la dernière mise à jour — à changer à CHAQUE déploiement (sert à vérifier qu'on a la dernière version avec l'icône).
-var APP_VERSION_LABEL = "10 octobre 2026 à 15 h 23";
+var APP_VERSION_LABEL = "10 octobre 2026 à 16 h 05";
 var UPDATE_AVAILABLE = false;
 var UPDATE_MSG = "";
 function versionStampHTML(){
@@ -1327,17 +1354,52 @@ function render(){
   if(UI.confirmingReset){
     html += "<div class='modal-backdrop' onclick='App.cancelResetRound()'>";
     html += "<div class='modal-box' onclick='event.stopPropagation()'>";
-    html += "<div class='lead' style='text-align:center;font-weight:800'>Effacer toute la ronde en cours ?</div>";
-    html += "<div class='lead' style='text-align:center'>Cette action est irréversible.</div>";
-    html += "<div style='display:flex;gap:8px;margin-top:4px'>";
-    html += "<button class='btn-ghost' style='flex:1' onclick='App.cancelResetRound()'>Annuler</button>";
-    html += "<button class='shotbtn' style='flex:1' onclick='App.resetRound()'>&#128465; Oui, effacer</button>";
-    html += "</div></div></div>";
+    // [2026-10-10] Question sans équivoque : garder la ronde dans les stats, ou ne rien garder.
+    var re = roundToEntry(), reHoles = re.putts.length, reShots = re.shots.length;
+    if(reShots > 0 || reHoles > 0){
+      var reTxt = reShots+" coup"+(reShots>1?"s":"")+" noté"+(reShots>1?"s":"")+" sur "+reHoles+" trou"+(reHoles>1?"s":"");
+      html += "<div class='lead' style='text-align:center;font-weight:900;font-size:1.05rem;color:var(--text)'>Que faire de la ronde en cours ?</div>";
+      html += "<div class='lead' style='text-align:center'>"+reTxt+" ("+(re.course||"terrain ?")+").</div>";
+      html += "<button class='okbtn' onclick='App.resetRound(true)'>&#9989; Garder cette ronde dans mes statistiques, puis la fermer</button>";
+      html += "<div class='lead' style='text-align:center;font-size:.8rem;margin-top:-4px'>Ces coups comptent pour vos recommandations. L'écran repart à zéro.</div>";
+      html += "<button class='btn-ghost redtext' style='font-weight:900' onclick='App.resetRound(false)'>&#128465; Effacer cette ronde et ne rien garder</button>";
+      html += "<div class='lead' style='text-align:center;font-size:.8rem;margin-top:-4px'>Ces coups ne compteront pas dans vos statistiques. (Récupérable dans « Rondes supprimées » en cas d'erreur.)</div>";
+      html += "<button class='btn-ghost' onclick='App.cancelResetRound()'>Annuler &mdash; revenir à la ronde</button>";
+      html += "</div></div>";
+    } else {
+      html += "<div class='lead' style='text-align:center;font-weight:800'>Remettre l'écran à zéro ?</div>";
+      html += "<div class='lead' style='text-align:center'>Aucun coup n'est noté : rien ne sera perdu.</div>";
+      html += "<div style='display:flex;gap:8px;margin-top:4px'>";
+      html += "<button class='btn-ghost' style='flex:1' onclick='App.cancelResetRound()'>Annuler</button>";
+      html += "<button class='okbtn' style='flex:1' onclick='App.resetRound(true)'>Oui</button>";
+      html += "</div></div></div>";
+    }
   }
 
+  html += ninePromptHTML();
   html += Voice.barHTML();
   document.getElementById("app").innerHTML = html;
   document.body.classList.toggle("voice-on", isVoiceMode());
+}
+
+// [2026-10-10] Fenêtre « 9 trous terminés » (affichée après « Terminer » du trou 9).
+function ninePromptHTML(){
+  if(!ROUND.pendingNine) return "";
+  var score = 0, par = 0, played = 0;
+  for(var n=1;n<=9;n++){
+    var hn = ROUND.holes[n];
+    if(!hn) continue;
+    var sv = holeScoreDisplay(n);
+    if(sv !== null && sv !== undefined){ score += sv; par += (hn.par || 0); played++; }
+  }
+  var diff = score - par, diffTxt = diff === 0 ? "égal à la normale" : (diff > 0 ? "+"+diff : String(diff));
+  return "<div class='modal-backdrop'><div class='modal-box' onclick='event.stopPropagation()'>" +
+    "<div class='lead' style='text-align:center;font-weight:900;font-size:1.1rem;color:var(--text)'>&#9971; 9 trous terminés !</div>" +
+    (played ? "<div class='lead' style='text-align:center'>Score : <b>"+score+"</b> (normale "+par+", "+diffTxt+")</div>" : "") +
+    "<div class='lead' style='text-align:center;font-weight:800;color:var(--text)'>On continue vers le 10e trou, ou c'est terminé pour aujourd'hui ?</div>" +
+    "<button class='okbtn' onclick='App.nineContinue()'>&#9654; Continuer vers le 10e trou</button>" +
+    "<button class='btn-ghost' style='font-weight:900' onclick='App.nineDone()'>&#127937; Terminé pour aujourd'hui</button>" +
+    "<div class='lead' style='text-align:center;font-size:.75rem'>Votre ronde est déjà gardée dans l'historique du cell.</div></div></div>";
 }
 
 function modeLineHTML(){
@@ -1509,7 +1571,10 @@ function prevRoundsHTML(){
   }
   return h + "</div>";
 }
-function currentRoundId(){ return (ROUND.date || todayISO()) + "|" + (ROUND.course || "") + "|" + (ROUND.tee || ""); }
+// [2026-10-10] Identifiant unique par ronde : une 2e ronde le même jour, sur le même terrain et le même départ,
+// ne remplace plus la première dans l'historique. Les rondes déjà commencées (sans runId) gardent leur ancien identifiant.
+function newRunId(){ return Date.now().toString(36) + Math.floor(Math.random()*1296).toString(36); }
+function currentRoundId(){ return (ROUND.date || todayISO()) + "|" + (ROUND.course || "") + "|" + (ROUND.tee || "") + (ROUND.runId ? "|" + ROUND.runId : ""); }
 // Résume la ronde en cours : coups pleins [bâton, distance] + nombre de roulés par trou (le Putter hors du vert compte aussi).
 function roundToEntry(){
   var shots = [], putts = [];
@@ -1532,6 +1597,22 @@ function archiveCurrentRound(){
     for(var i=0;i<hist.length;i++){ if(hist[i].id === e.id){ hist[i] = e; found = true; break; } }
     if(!found) hist.push(e);
     saveHistory(hist);
+  }catch(err){}
+}
+// [2026-10-10] « Effacer et ne rien garder » : la ronde en cours sort de l'historique (donc des stats) ;
+// une copie va dans « Rondes supprimées » pour pouvoir la restaurer en cas d'erreur.
+function discardCurrentRound(){
+  try{
+    var id = currentRoundId(), e = roundToEntry();
+    var h = loadHistory(), kept = [], gone = [];
+    h.forEach(function(r){ if(r.id === id) gone.push(r); else kept.push(r); });
+    if(gone.length === 0 && e.shots.length > 0) gone.push(e);
+    if(gone.length){
+      var tr = []; try{ tr = JSON.parse(localStorage.getItem(TRASH_KEY) || "[]"); }catch(x){ tr = []; }
+      gone.forEach(function(r){ r.deletedAt = new Date().toISOString(); tr = tr.filter(function(t){ return t.id !== r.id; }); tr.push(r); });
+      localStorage.setItem(TRASH_KEY, JSON.stringify(tr));
+    }
+    saveHistory(kept);
   }catch(err){}
 }
 // Toutes les rondes (historique sans la ronde en cours, puis la ronde en cours) — seulement les bâtons du sac actuel.
@@ -2198,6 +2279,7 @@ function runVoiceCommand(c){
       if(!hd.onGreen) return { err:"Tu n'es pas encore sur le vert" };
       var done = ROUND.cur;
       App.registerPutts();
+      if(ROUND.pendingNine) return { say:"Trou 9 terminé. Neuf trous joués. Touche l'écran : continuer vers le dixième trou, ou terminé pour aujourd'hui." };
       var nh = getHole(ROUND.cur);
       if(ROUND.cur === done) return { say:"Trou "+done+" terminé. C'était le dernier trou, bravo" };
       return { say:"Trou "+done+" terminé. Trou "+ROUND.cur+", par "+nh.par+", "+nh.startDist+" verges" };
